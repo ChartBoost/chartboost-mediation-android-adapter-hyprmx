@@ -1,6 +1,6 @@
-# Chartboost Mediation {Partner} Adapter
+# Chartboost Mediation HyprMX Adapter
 
-The Chartboost Mediation {Partner} adapter mediates {Partner} via the Chartboost Mediation SDK.
+The Chartboost Mediation HyprMX adapter mediates HyprMX via the Chartboost Mediation SDK.
 
 ## Minimum Requirements
 
@@ -13,7 +13,7 @@ The Chartboost Mediation {Partner} adapter mediates {Partner} via the Chartboost
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-{partner}:{adapter-version}"
+    implementation "com.chartboost:chartboost-mediation-adapter-hyprmx:4.6.0.3.0"
 ```
 
 ## Contributions
