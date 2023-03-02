@@ -105,7 +105,7 @@ class HyprMXAdapter : PartnerAdapter {
 
         return suspendCoroutine { continuation ->
             Json.decodeFromJsonElement<String>(
-                partnerConfiguration.credentials.getValue(DISTRIBUTOR_ID_KEY)
+                (partnerConfiguration.credentials as JsonObject).getValue(DISTRIBUTOR_ID_KEY)
             ).trim()
                 .takeIf { it.isNotEmpty() }?.let { distributorId ->
 
@@ -389,6 +389,7 @@ class HyprMXAdapter : PartnerAdapter {
 
                     override fun onAdOpened(ad: HyprMXBannerView) {}
                 }
+                // After setting the listener, load a HyprMX banner ad.
                 loadAd()
             }
         }
@@ -484,7 +485,7 @@ class HyprMXAdapter : PartnerAdapter {
                         }
                     }
                 })
-                // After setting the listener, load an HyprMX ad.
+                // After setting the listener, load an HyprMX interstitial ad.
                 loadAd()
             }
         }
@@ -581,7 +582,7 @@ class HyprMXAdapter : PartnerAdapter {
                         )
                     }
                 })
-                // After setting the listener, load an HyprMX ad.
+                // After setting the listener, load an HyprMX rewarded ad.
                 loadAd()
             }
         }
@@ -599,7 +600,7 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
         return (partnerAd.ad)?.let { ad ->
-            (ad as Placement).let {
+            (ad as Placement).let { placement ->
                 suspendCancellableCoroutine { continuation ->
                     onShowSuccess = {
                         PartnerLogController.log(SHOW_SUCCEEDED)
@@ -616,7 +617,7 @@ class HyprMXAdapter : PartnerAdapter {
                             )
                         )
                     }
-                    if (it.isAdAvailable()) it.showAd()
+                    if (placement.isAdAvailable()) placement.showAd()
                 }
             } ?: run {
                 PartnerLogController.log(
