@@ -8,7 +8,6 @@
 package com.chartboost.mediation.hyprmxadapter
 
 import android.content.Context
-import android.util.DisplayMetrics
 import android.util.Size
 import com.chartboost.heliumsdk.HeliumSdk
 import com.chartboost.heliumsdk.domain.*
@@ -61,6 +60,16 @@ class HyprMXAdapter : PartnerAdapter {
          * Key for parsing the HyperMX SDK distributor ID.
          */
         private const val DISTRIBUTOR_ID_KEY = "distributor_id"
+
+        /**
+         * HyprMX shared preference key.
+         */
+        private const val HYPRMX_PREFS_KEY = "hyprmx_prefs"
+
+        /**
+         * HyprMX user ID key.
+         */
+        private const val HYPRMX_USER_ID_KEY = "hyprUserId"
     }
 
     /**
@@ -135,7 +144,7 @@ class HyprMXAdapter : PartnerAdapter {
                 (partnerConfiguration.credentials as JsonObject).getValue(DISTRIBUTOR_ID_KEY)
             ).trim()
                 .takeIf { it.isNotEmpty() }?.let { distributorId ->
-
+                    enableDebugLogs(true)
                     HyprMX.initialize(
                         context = context,
                         distributorId = distributorId,
@@ -188,15 +197,17 @@ class HyprMXAdapter : PartnerAdapter {
      * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
      *
      * @param context a context that will be passed to the SharedPreferences to set the user ID.
+     *
+     * @return An already stored unique generated identifier. Or, generates and returns a new one.
      */
     private fun getUserId(context: Context): String {
-        context.getSharedPreferences("hyprmx_prefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
             .let { sharedPreferences ->
-                sharedPreferences.getString("hyprUserId", null)?.let {
+                sharedPreferences.getString(HYPRMX_USER_ID_KEY, null)?.let {
                     return it
                 } ?: run {
                     val userId = UUID.randomUUID().toString()
-                    sharedPreferences.edit().putString("hyprUserId", userId).apply()
+                    sharedPreferences.edit().putString(HYPRMX_USER_ID_KEY, userId).apply()
                     return userId
                 }
             }
@@ -205,7 +216,10 @@ class HyprMXAdapter : PartnerAdapter {
     /**
      * Get the consent status.
      * This is passed on SDK initialization and based on whether GDPR applies or not.
+     *
      * @param consent True if consent is true, false if declined, and unknown if null.
+     *
+     * @return a consent status based on the passed in [Boolean].
      */
     private fun getConsentStatus(consent: Boolean?): ConsentStatus {
         return when (consent) {
@@ -255,6 +269,7 @@ class HyprMXAdapter : PartnerAdapter {
 
     /**
      * Notify HyprMX of the CCPA compliance.
+     *
      * @param context The current [Context].
      * @param hasGrantedCcpaConsent True if the user has granted CCPA consent, false otherwise.
      * @param privacyString The CCPA privacy String.
@@ -268,7 +283,7 @@ class HyprMXAdapter : PartnerAdapter {
             if (hasGrantedCcpaConsent) CCPA_CONSENT_GRANTED
             else CCPA_CONSENT_DENIED
         )
-        // NO-OP: No CCPA APIs. Need to confirm.
+        // TODO: No CCPA APIs. Need to confirm.
     }
 
     /**
@@ -403,7 +418,6 @@ class HyprMXAdapter : PartnerAdapter {
                     override fun onAdClosed(ad: HyprMXBannerView) {}
 
                     override fun onAdFailedToLoad(ad: HyprMXBannerView, error: HyprMXErrors) {
-
                         PartnerLogController.log(
                             LOAD_FAILED, "Error: ${error.name}. " +
                                     "Ordinal: ${error.ordinal}"
@@ -434,7 +448,6 @@ class HyprMXAdapter : PartnerAdapter {
 
                     override fun onAdOpened(ad: HyprMXBannerView) {}
                 }
-                // After setting the listener, load a HyprMX banner ad.
                 loadAd()
             }
         }
@@ -447,11 +460,15 @@ class HyprMXAdapter : PartnerAdapter {
      *
      * @return The HyprMX ad size that best matches the given [Size].
      */
-    private fun getHyprMXBannerAdSize(size: Size?) = when (size?.height) {
-        in 50 until 90 -> HyprMXBannerSize.HyprMXAdSizeBanner
-        in 90 until 250 -> HyprMXBannerSize.HyprMXAdSizeLeaderboard
-        in 250 until DisplayMetrics().heightPixels -> HyprMXBannerSize.HyprMXAdSizeMediumRectangle
-        else -> HyprMXBannerSize.HyprMXAdSizeBanner
+    private fun getHyprMXBannerAdSize(size: Size?): HyprMXBannerSize {
+        return size?.height?.let {
+            when {
+                it in 50 until 90 -> HyprMXBannerSize.HyprMXAdSizeBanner
+                it in 90 until 250 -> HyprMXBannerSize.HyprMXAdSizeLeaderboard
+                it >= 250 -> HyprMXBannerSize.HyprMXAdSizeMediumRectangle
+                else -> HyprMXBannerSize.HyprMXAdSizeBanner
+            }
+        } ?: HyprMXBannerSize.HyprMXAdSizeBanner
     }
 
     /**
@@ -530,7 +547,6 @@ class HyprMXAdapter : PartnerAdapter {
                         }
                     }
                 })
-                // After setting the listener, load an HyprMX interstitial ad.
                 loadAd()
             }
         }
@@ -627,7 +643,6 @@ class HyprMXAdapter : PartnerAdapter {
                         )
                     }
                 })
-                // After setting the listener, load an HyprMX rewarded ad.
                 loadAd()
             }
         }
@@ -653,7 +668,10 @@ class HyprMXAdapter : PartnerAdapter {
                     }
 
                     onShowError = { error ->
-                        PartnerLogController.log(SHOW_FAILED, "Failed to show due to error: $error")
+                        PartnerLogController.log(
+                            SHOW_FAILED,
+                            "Failed to show due to error: ${getChartboostMediationError(error)}"
+                        )
                         continuation.resume(
                             Result.failure(
                                 ChartboostMediationAdException(
