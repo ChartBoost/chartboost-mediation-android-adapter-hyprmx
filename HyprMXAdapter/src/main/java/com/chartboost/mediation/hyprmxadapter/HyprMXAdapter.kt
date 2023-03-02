@@ -216,7 +216,7 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
-     * Notify the Chartboost SDK of the GDPR applicability and consent status.
+     * Notify the HyprMX SDK of the GDPR applicability and consent status.
      *
      * @param context The current [Context].
      * @param applies True if GDPR applies, false otherwise.
