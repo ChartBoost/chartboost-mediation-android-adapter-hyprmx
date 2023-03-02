@@ -10,6 +10,7 @@ package com.chartboost.mediation.hyprmxadapter
 import android.content.Context
 import android.util.DisplayMetrics
 import android.util.Size
+import com.chartboost.heliumsdk.HeliumSdk
 import com.chartboost.heliumsdk.domain.*
 import com.chartboost.heliumsdk.utils.PartnerLogController
 import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
@@ -23,6 +24,8 @@ import com.hyprmx.android.sdk.core.HyprMXIf
 import com.hyprmx.android.sdk.placement.Placement
 import com.hyprmx.android.sdk.placement.PlacementListener
 import com.hyprmx.android.sdk.placement.RewardedPlacementListener
+import com.hyprmx.android.sdk.utility.HyprMXLog
+import com.hyprmx.android.sdk.utility.HyprMXProperties
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -36,6 +39,24 @@ import kotlin.coroutines.suspendCoroutine
  */
 class HyprMXAdapter : PartnerAdapter {
     companion object {
+
+        /**
+         * Enable HyprMX debug logs.
+         * @param enabled True to enable debug logs, false otherwise.
+         */
+        fun enableDebugLogs(enabled: Boolean) {
+            HyprMXLog.enableDebugLogs(enabled)
+        }
+
+        /**
+         * Adds a long debug log to HyprMX's logger for debugging.
+         * @param tag a constant tag
+         * @param message the log message
+         */
+        fun longDebugLog(tag: String, message: String) {
+            HyprMXLog.longDebugLog(tag, message)
+        }
+
         /**
          * Key for parsing the HyperMX SDK distributor ID.
          */
@@ -46,7 +67,7 @@ class HyprMXAdapter : PartnerAdapter {
      * Get the HyprMX SDK version.
      */
     override val partnerSdkVersion: String
-        get() = com.hyprmx.android.BuildConfig.HYPRMX_VERSION
+        get() = HyprMXProperties.version
 
     /**
      * Get the HyprMX adapter version.
@@ -85,8 +106,14 @@ class HyprMXAdapter : PartnerAdapter {
      */
     private var gdprApplies: Boolean? = null
 
+    /**
+     * A lambda to call for successful HyprMX ad shows.
+     */
     private var onShowSuccess: () -> Unit = {}
 
+    /**
+     * A lambda to call for failed HyprMX ad shows.
+     */
     private var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
 
     /**
@@ -136,6 +163,12 @@ class HyprMXAdapter : PartnerAdapter {
                             }
                         }
                     )
+                    // Set the Mediation Provider.
+                    HyprMX.setMediationProvider(
+                        mediator = "Chartboost Mediation",
+                        mediatorSDKVersion = HeliumSdk.getVersion(),
+                        adapterVersion = adapterVersion
+                    )
                 } ?: run {
                 PartnerLogController.log(SETUP_FAILED, "Missing distributorID.")
                 continuation.resumeWith(
@@ -149,6 +182,13 @@ class HyprMXAdapter : PartnerAdapter {
         }
     }
 
+    /**
+     * HyprMX needs a unique generated identifier that needs to be static across sessions.
+     * This is passed on SDK initialization.
+     * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
+     *
+     * @param context a context that will be passed to the SharedPreferences to set the user ID.
+     */
     private fun getUserId(context: Context): String {
         context.getSharedPreferences("hyprmx_prefs", Context.MODE_PRIVATE)
             .let { sharedPreferences ->
@@ -162,8 +202,13 @@ class HyprMXAdapter : PartnerAdapter {
             }
     }
 
-    private fun getConsentStatus(boolean: Boolean?): ConsentStatus {
-        return when (boolean) {
+    /**
+     * Get the consent status.
+     * This is passed on SDK initialization and based on whether GDPR applies or not.
+     * @param consent True if consent is true, false if declined, and unknown if null.
+     */
+    private fun getConsentStatus(consent: Boolean?): ConsentStatus {
+        return when (consent) {
             true -> ConsentStatus.CONSENT_GIVEN
             false -> ConsentStatus.CONSENT_DECLINED
             else -> ConsentStatus.CONSENT_STATUS_UNKNOWN
@@ -366,7 +411,7 @@ class HyprMXAdapter : PartnerAdapter {
                         continuation.resume(
                             Result.failure(
                                 ChartboostMediationAdException(
-                                    ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN
+                                    getChartboostMediationError(error)
                                 )
                             )
                         )
@@ -612,7 +657,7 @@ class HyprMXAdapter : PartnerAdapter {
                         continuation.resume(
                             Result.failure(
                                 ChartboostMediationAdException(
-                                    ChartboostMediationError.CM_SHOW_FAILURE_UNKNOWN
+                                    getChartboostMediationError(error)
                                 )
                             )
                         )
@@ -653,5 +698,22 @@ class HyprMXAdapter : PartnerAdapter {
             PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
         }
+    }
+
+    /**
+     * Convert a given HyprMX error code into a [ChartboostMediationError].
+     *
+     * @param error The HyprMX error code as an [Int].
+     *
+     * @return The corresponding [ChartboostMediationError].
+     */
+    private fun getChartboostMediationError(error: HyprMXErrors) = when (error) {
+        HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
+        HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
+        HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
+        HyprMXErrors.PLACEMENT_NAME_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
+        HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_VIDEO_PLAYER_ERROR
+        HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
+        else -> ChartboostMediationError.CM_PARTNER_ERROR
     }
 }
