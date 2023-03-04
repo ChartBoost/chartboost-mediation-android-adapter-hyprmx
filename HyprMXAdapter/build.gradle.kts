@@ -115,7 +115,7 @@ afterEvaluate {
             register<MavenPublication>("remoteRelease") {
                 from(components["remoteRelease"])
 
-                val adapterName = "hypr-mx"
+                val adapterName = "hyprmx"
                 groupId = "com.chartboost"
                 artifactId = "chartboost-mediation-adapter-$adapterName"
                 version = if (project.hasProperty("snapshot")) {

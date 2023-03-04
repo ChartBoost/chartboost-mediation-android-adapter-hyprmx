@@ -64,12 +64,30 @@ class HyprMXAdapter : PartnerAdapter {
         /**
          * HyprMX shared preference key.
          */
-        private const val HYPRMX_PREFS_KEY = "hyprmx_prefs"
+        private const val HYPRMX_ADAPTER_PREFS_KEY = "hyprmx_adapter_prefs"
 
         /**
-         * HyprMX user ID key.
+         * HyperMX user consent key.
          */
-        private const val HYPRMX_USER_ID_KEY = "hyprUserId"
+        private const val HYPRMX_USER_AGE_RESTRICTED_KEY = "hyprUserAgeRestricted"
+
+        /**
+         * HyprMX needs a unique generated identifier that needs to be static across sessions.
+         * This is passed on SDK initialization.
+         * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
+         *
+         * This adapter will generate a string that will be passed down to initialize HyprMX,
+         * but will not store it. The publisher will need to do this by overwriting this property
+         * when HyprMX SDK is used in mediation.
+         *
+         * The HyprMX SDK will not initialize on a null or empty string value.
+         *
+         * Note: This property needs to be set before Chartboost Mediation SDK initialization.
+         */
+        var userIdentifier: String? = null
+            get() = field?.let {
+                return it
+            } ?: UUID.randomUUID().toString()
     }
 
     /**
@@ -104,11 +122,6 @@ class HyprMXAdapter : PartnerAdapter {
      */
     override val partnerDisplayName: String
         get() = "HyprMX"
-
-    /**
-     * Indicate whether the user is age restricted
-     */
-    private var ageRestrictedUser: Boolean = false
 
     /**
      * Indicate whether GDPR currently applies to the user.
@@ -148,9 +161,9 @@ class HyprMXAdapter : PartnerAdapter {
                     HyprMX.initialize(
                         context = context,
                         distributorId = distributorId,
-                        userId = getUserId(context),
+                        userId = userIdentifier,
                         consentStatus = getConsentStatus(gdprApplies),
-                        ageRestrictedUser = ageRestrictedUser,
+                        ageRestrictedUser = isAgeRestricted(context),
                         listener = object : HyprMXIf.HyprMXInitializationListener {
                             override fun initializationComplete() {
                                 continuation.resume(
@@ -192,25 +205,17 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
-     * HyprMX needs a unique generated identifier that needs to be static across sessions.
+     * Checks if the user is age restricted in the shared preferences.
      * This is passed on SDK initialization.
-     * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
      *
-     * @param context a context that will be passed to the SharedPreferences to set the user ID.
+     * @param context a context that will be passed to the SharedPreferences to get if the user
+     * is age restricted.
      *
-     * @return An already stored unique generated identifier. Or, generates and returns a new one.
+     * @return An already stored age restriction. False, as default.
      */
-    private fun getUserId(context: Context): String {
-        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
-            .let { sharedPreferences ->
-                sharedPreferences.getString(HYPRMX_USER_ID_KEY, null)?.let {
-                    return it
-                } ?: run {
-                    val userId = UUID.randomUUID().toString()
-                    sharedPreferences.edit().putString(HYPRMX_USER_ID_KEY, userId).apply()
-                    return userId
-                }
-            }
+    private fun isAgeRestricted(context: Context): Boolean {
+        return context.getSharedPreferences(HYPRMX_ADAPTER_PREFS_KEY, Context.MODE_PRIVATE)
+            .getBoolean(HYPRMX_USER_AGE_RESTRICTED_KEY, false)
     }
 
     /**
@@ -299,7 +304,8 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         // COPPA is set on SDK initialization.
-        ageRestrictedUser = isSubjectToCoppa
+        context.getSharedPreferences(HYPRMX_ADAPTER_PREFS_KEY, Context.MODE_PRIVATE).edit()
+            .putBoolean(HYPRMX_USER_AGE_RESTRICTED_KEY, isSubjectToCoppa).apply()
     }
 
     /**
@@ -659,43 +665,38 @@ class HyprMXAdapter : PartnerAdapter {
         partnerAd: PartnerAd
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
-        return (partnerAd.ad)?.let { ad ->
-            (ad as Placement).let { placement ->
-                suspendCancellableCoroutine { continuation ->
-                    onShowSuccess = {
-                        PartnerLogController.log(SHOW_SUCCEEDED)
-                        continuation.resume(Result.success(partnerAd))
-                    }
+        return (partnerAd.ad as? Placement)?.let { placement ->
+            suspendCancellableCoroutine { continuation ->
+                onShowSuccess = {
+                    PartnerLogController.log(SHOW_SUCCEEDED)
+                    continuation.resume(Result.success(partnerAd))
+                }
 
-                    onShowError = { error ->
-                        PartnerLogController.log(
-                            SHOW_FAILED,
-                            "Failed to show due to error: ${getChartboostMediationError(error)}"
-                        )
-                        continuation.resume(
-                            Result.failure(
-                                ChartboostMediationAdException(
-                                    getChartboostMediationError(error)
-                                )
+                onShowError = { error ->
+                    PartnerLogController.log(
+                        SHOW_FAILED,
+                        "Failed to show due to error: ${getChartboostMediationError(error)}"
+                    )
+                    continuation.resume(
+                        Result.failure(
+                            ChartboostMediationAdException(
+                                getChartboostMediationError(error)
                             )
                         )
-                    }
-                    if (placement.isAdAvailable()) placement.showAd()
-                }
-            } ?: run {
-                PartnerLogController.log(
-                    PartnerLogController.PartnerAdapterEvents.SHOW_FAILED,
-                    "Ad is not Placement."
-                )
-                Result.failure(
-                    ChartboostMediationAdException(
-                        ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE
                     )
-                )
+                }
+                if (placement.isAdAvailable()) placement.showAd()
             }
         } ?: run {
-            PartnerLogController.log(SHOW_FAILED, "Ad is null.")
-            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_AD_NOT_FOUND))
+            PartnerLogController.log(
+                PartnerLogController.PartnerAdapterEvents.SHOW_FAILED,
+                "Ad is not Placement."
+            )
+            Result.failure(
+                ChartboostMediationAdException(
+                    ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE
+                )
+            )
         }
     }
 
