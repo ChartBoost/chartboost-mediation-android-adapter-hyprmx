@@ -48,7 +48,7 @@ class HyprMXAdapter : PartnerAdapter {
         }
 
         /**
-         * Adds a long debug log to HyprMX's logger for debugging.
+         * Add a long debug log to HyprMX's logger for debugging.
          * @param tag a constant tag
          * @param message the log message
          */
