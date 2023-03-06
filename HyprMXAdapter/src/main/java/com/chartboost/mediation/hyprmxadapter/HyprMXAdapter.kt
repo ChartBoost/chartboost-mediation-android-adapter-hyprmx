@@ -62,16 +62,6 @@ class HyprMXAdapter : PartnerAdapter {
         private const val DISTRIBUTOR_ID_KEY = "distributor_id"
 
         /**
-         * HyprMX shared preference key.
-         */
-        private const val HYPRMX_ADAPTER_PREFS_KEY = "hyprmx_adapter_prefs"
-
-        /**
-         * HyperMX user consent key.
-         */
-        private const val HYPRMX_USER_AGE_RESTRICTED_KEY = "hyprUserAgeRestricted"
-
-        /**
          * HyprMX needs a unique generated identifier that needs to be static across sessions.
          * This is passed on SDK initialization.
          * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
@@ -93,6 +83,14 @@ class HyprMXAdapter : PartnerAdapter {
                     field
                 }
             }
+
+        /**
+         * Sets the HyprMX user age restriction.
+         * This is passed on SDK initialization.
+         *
+         * Note: This property needs to be set before Chartboost Mediation SDK initialization.
+         */
+        var isAgeRestricted: Boolean = false
     }
 
     /**
@@ -168,7 +166,7 @@ class HyprMXAdapter : PartnerAdapter {
                         distributorId = distributorId,
                         userId = userIdentifier,
                         consentStatus = getConsentStatus(gdprApplies),
-                        ageRestrictedUser = isAgeRestricted(context),
+                        ageRestrictedUser = isAgeRestricted,
                         listener = object : HyprMXIf.HyprMXInitializationListener {
                             override fun initializationComplete() {
                                 continuation.resume(
@@ -207,20 +205,6 @@ class HyprMXAdapter : PartnerAdapter {
                 )
             }
         }
-    }
-
-    /**
-     * Checks if the user is age restricted in the shared preferences.
-     * This is passed on SDK initialization.
-     *
-     * @param context a context that will be passed to the SharedPreferences to get if the user
-     * is age restricted.
-     *
-     * @return An already stored age restriction. False, as default.
-     */
-    private fun isAgeRestricted(context: Context): Boolean {
-        return context.getSharedPreferences(HYPRMX_ADAPTER_PREFS_KEY, Context.MODE_PRIVATE)
-            .getBoolean(HYPRMX_USER_AGE_RESTRICTED_KEY, false)
     }
 
     /**
@@ -309,8 +293,7 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         // COPPA is set on SDK initialization.
-        context.getSharedPreferences(HYPRMX_ADAPTER_PREFS_KEY, Context.MODE_PRIVATE).edit()
-            .putBoolean(HYPRMX_USER_AGE_RESTRICTED_KEY, isSubjectToCoppa).apply()
+        isAgeRestricted = isSubjectToCoppa
     }
 
     /**
