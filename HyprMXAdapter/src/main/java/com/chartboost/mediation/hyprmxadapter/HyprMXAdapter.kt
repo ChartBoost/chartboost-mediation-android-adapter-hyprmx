@@ -85,9 +85,14 @@ class HyprMXAdapter : PartnerAdapter {
          * Note: This property needs to be set before Chartboost Mediation SDK initialization.
          */
         var userIdentifier: String? = null
-            get() = field?.let {
-                return it
-            } ?: UUID.randomUUID().toString()
+            get() {
+                return field ?: run {
+                    UUID.randomUUID().toString().also {
+                        field = it
+                    }
+                    field
+                }
+            }
     }
 
     /**
@@ -494,23 +499,19 @@ class HyprMXAdapter : PartnerAdapter {
                 setPlacementListener(object : PlacementListener {
                     override fun onAdStarted(placement: Placement?) {
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        placement?.let {
-                            onShowSuccess()
-                        }
+                        onShowSuccess()
                     }
 
                     override fun onAdClosed(placement: Placement?, finished: Boolean) {
                         PartnerLogController.log(DID_DISMISS)
-                        placement?.let {
-                            partnerAdListener.onPartnerAdDismissed(
-                                PartnerAd(
-                                    ad = it,
-                                    details = emptyMap(),
-                                    request = request
-                                ),
-                                null
-                            )
-                        }
+                        partnerAdListener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = placement,
+                                details = emptyMap(),
+                                request = request
+                            ),
+                            null
+                        )
                     }
 
                     override fun onAdDisplayError(
@@ -518,39 +519,33 @@ class HyprMXAdapter : PartnerAdapter {
                         hyprMXError: HyprMXErrors?
                     ) {
                         PartnerLogController.log(SHOW_FAILED)
-                        placement?.let {
-                            hyprMXError?.let {
-                                onShowError(it)
-                            }
+                        hyprMXError?.let {
+                            onShowError(it)
                         }
                     }
 
                     override fun onAdAvailable(placement: Placement?) {
                         PartnerLogController.log(LOAD_SUCCEEDED)
-                        placement?.let {
-                            continuation.resume(
-                                Result.success(
-                                    PartnerAd(
-                                        ad = it,
-                                        details = emptyMap(),
-                                        request = request
-                                    )
+                        continuation.resume(
+                            Result.success(
+                                PartnerAd(
+                                    ad = placement,
+                                    details = emptyMap(),
+                                    request = request
                                 )
                             )
-                        }
+                        )
                     }
 
                     override fun onAdNotAvailable(placement: Placement?) {
                         PartnerLogController.log(LOAD_FAILED)
-                        placement?.let {
-                            continuation.resume(
-                                Result.failure(
-                                    ChartboostMediationAdException(
-                                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-                                    )
+                        continuation.resume(
+                            Result.failure(
+                                ChartboostMediationAdException(
+                                    ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
                                 )
                             )
-                        }
+                        )
                     }
                 })
                 loadAd()
@@ -575,23 +570,19 @@ class HyprMXAdapter : PartnerAdapter {
                 setPlacementListener(object : RewardedPlacementListener {
                     override fun onAdStarted(placement: Placement?) {
                         PartnerLogController.log(SHOW_SUCCEEDED)
-                        placement?.let {
-                            onShowSuccess()
-                        }
+                        onShowSuccess()
                     }
 
                     override fun onAdClosed(placement: Placement?, finished: Boolean) {
                         PartnerLogController.log(DID_DISMISS)
-                        placement?.let {
-                            partnerAdListener.onPartnerAdDismissed(
-                                PartnerAd(
-                                    ad = it,
-                                    details = emptyMap(),
-                                    request = request
-                                ),
-                                null
-                            )
-                        }
+                        partnerAdListener.onPartnerAdDismissed(
+                            PartnerAd(
+                                ad = placement,
+                                details = emptyMap(),
+                                request = request
+                            ),
+                            null
+                        )
                     }
 
                     override fun onAdDisplayError(
@@ -599,39 +590,33 @@ class HyprMXAdapter : PartnerAdapter {
                         hyprMXError: HyprMXErrors?
                     ) {
                         PartnerLogController.log(SHOW_FAILED)
-                        placement?.let {
-                            hyprMXError?.let {
-                                onShowError(it)
-                            }
+                        hyprMXError?.let {
+                            onShowError(it)
                         }
                     }
 
                     override fun onAdAvailable(placement: Placement?) {
                         PartnerLogController.log(LOAD_SUCCEEDED)
-                        placement?.let {
-                            continuation.resume(
-                                Result.success(
-                                    PartnerAd(
-                                        ad = it,
-                                        details = emptyMap(),
-                                        request = request
-                                    )
+                        continuation.resume(
+                            Result.success(
+                                PartnerAd(
+                                    ad = placement,
+                                    details = emptyMap(),
+                                    request = request
                                 )
                             )
-                        }
+                        )
                     }
 
                     override fun onAdNotAvailable(placement: Placement?) {
                         PartnerLogController.log(LOAD_FAILED)
-                        placement?.let {
-                            continuation.resume(
-                                Result.failure(
-                                    ChartboostMediationAdException(
-                                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-                                    )
+                        continuation.resume(
+                            Result.failure(
+                                ChartboostMediationAdException(
+                                    ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
                                 )
                             )
-                        }
+                        )
                     }
 
                     override fun onAdRewarded(
@@ -731,7 +716,7 @@ class HyprMXAdapter : PartnerAdapter {
         HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
         HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
         HyprMXErrors.PLACEMENT_NAME_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
-        HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_VIDEO_PLAYER_ERROR
+        HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
         HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
         else -> ChartboostMediationError.CM_PARTNER_ERROR
     }
