@@ -714,7 +714,7 @@ class HyprMXAdapter : PartnerAdapter {
             PartnerLogController.log(INVALIDATE_SUCCEEDED)
             Result.success(partnerAd)
         } ?: run {
-            PartnerLogController.log(INVALIDATE_FAILED, "Ad is null.")
+            PartnerLogController.log(INVALIDATE_FAILED, "Ad is null or not an instance of HyprMXBannerView.")
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
         }
     }
