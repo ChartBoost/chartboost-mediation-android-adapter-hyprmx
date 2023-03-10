@@ -66,8 +66,8 @@ class HyprMXAdapter : PartnerAdapter {
          * This is passed on SDK initialization.
          * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
          *
-         * This adapter will generate a string that will be passed down to initialize HyprMX,
-         * but will not store it. The publisher will need to do this by overwriting this property
+         * This adapter will not generate a string that will be passed down to initialize HyprMX,
+         * nor will store it. The publisher will need to do this by overwriting this property
          * when HyprMX SDK is used in mediation.
          *
          * The HyprMX SDK will not initialize on a null or empty string value.
@@ -75,14 +75,6 @@ class HyprMXAdapter : PartnerAdapter {
          * Note: This property needs to be set before Chartboost Mediation SDK initialization.
          */
         var userIdentifier: String? = null
-            get() {
-                return field ?: run {
-                    UUID.randomUUID().toString().also {
-                        field = it
-                    }
-                    field
-                }
-            }
 
         /**
          * Sets the HyprMX user age restriction.
@@ -91,6 +83,16 @@ class HyprMXAdapter : PartnerAdapter {
          * Note: This property needs to be set before Chartboost Mediation SDK initialization.
          */
         var isAgeRestricted: Boolean = false
+
+        /**
+         * HyprMX shared preference key.
+         */
+        private const val HYPRMX_PREFS_KEY = "hyprmx_prefs"
+
+        /**
+         * HyprMX user consent key.
+         */
+        private const val HYPRMX_USER_CONSENT_KEY = "hyprmx_user_consent"
     }
 
     /**
@@ -127,11 +129,6 @@ class HyprMXAdapter : PartnerAdapter {
         get() = "HyprMX"
 
     /**
-     * Indicate whether GDPR currently applies to the user.
-     */
-    private var gdprApplies: Boolean? = null
-
-    /**
      * A lambda to call for successful HyprMX ad shows.
      */
     private var onShowSuccess: () -> Unit = {}
@@ -165,7 +162,7 @@ class HyprMXAdapter : PartnerAdapter {
                         context = context,
                         distributorId = distributorId,
                         userId = userIdentifier,
-                        consentStatus = getConsentStatus(gdprApplies),
+                        consentStatus = getUserConsent(context),
                         ageRestrictedUser = isAgeRestricted,
                         listener = object : HyprMXIf.HyprMXInitializationListener {
                             override fun initializationComplete() {
@@ -208,22 +205,6 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
-     * Get the consent status.
-     * This is passed on SDK initialization and based on whether GDPR applies or not.
-     *
-     * @param consent True if consent is true, false if declined, and unknown if null.
-     *
-     * @return a consent status based on the passed in [Boolean].
-     */
-    private fun getConsentStatus(consent: Boolean?): ConsentStatus {
-        return when (consent) {
-            true -> ConsentStatus.CONSENT_GIVEN
-            false -> ConsentStatus.CONSENT_DECLINED
-            else -> ConsentStatus.CONSENT_STATUS_UNKNOWN
-        }
-    }
-
-    /**
      * Notify the HyprMX SDK of the GDPR applicability and consent status.
      *
      * @param context The current [Context].
@@ -251,14 +232,66 @@ class HyprMXAdapter : PartnerAdapter {
             }
         )
 
-        this.gdprApplies = applies
-
-        when (applies) {
-            // While consent is set during SDK init, HyprMX also has a separate API.
-            true -> HyprMX.setConsentStatus(ConsentStatus.CONSENT_GIVEN)
-            false -> HyprMX.setConsentStatus(ConsentStatus.CONSENT_DECLINED)
-            else -> HyprMX.setConsentStatus(ConsentStatus.CONSENT_STATUS_UNKNOWN)
+        when (gdprConsentStatus) {
+            GdprConsentStatus.GDPR_CONSENT_GRANTED -> {
+                ConsentStatus.CONSENT_GIVEN.let {
+                    setUserConsent(context, it.ordinal)
+                    HyprMX.setConsentStatus(it)
+                }
+            }
+            GdprConsentStatus.GDPR_CONSENT_DENIED -> {
+                ConsentStatus.CONSENT_DECLINED.let {
+                    setUserConsent(context, it.ordinal)
+                    HyprMX.setConsentStatus(it)
+                }
+            }
+            GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> {
+                ConsentStatus.CONSENT_STATUS_UNKNOWN.let {
+                    setUserConsent(context, it.ordinal)
+                    HyprMX.setConsentStatus(it)
+                }
+            }
         }
+    }
+
+    /**
+     * Store a HyprMX user's consent value.
+     * This is passed on SDK initialization.
+     *
+     * @param context a context that will be passed to the SharedPreferences to set the user consent.
+     */
+    private fun setUserConsent(context: Context, consentStatus: Int) {
+        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE).edit()
+            .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus).apply()
+    }
+
+    /**
+     * Get a stored user's consent and return its HyprMX equivalent.
+     * This is passed on SDK initialization.
+     *
+     * @param context a context that will be passed to the SharedPreferences to set the user consent.
+     *
+     * @return An already stored user consent.
+     */
+    private fun getUserConsent(context: Context) = getConsentStatus(
+            context.getSharedPreferences(
+                HYPRMX_PREFS_KEY,
+                Context.MODE_PRIVATE
+            ).getInt(HYPRMX_USER_CONSENT_KEY, 0)
+        )
+
+    /**
+     * Translate an integer value to a HyprMX user consent enum.
+     *
+     * @param consentValue an [Int] to be translated to a HyprMX consent.
+     *
+     * @return a [ConsentStatus] based on the integer passed in.
+     */
+    private fun getConsentStatus(consentValue: Int) = when (consentValue) {
+        0 -> ConsentStatus.CONSENT_STATUS_UNKNOWN
+        1 -> ConsentStatus.CONSENT_GIVEN
+        2 -> ConsentStatus.CONSENT_DECLINED
+        else -> ConsentStatus.CONSENT_STATUS_UNKNOWN
     }
 
     /**
@@ -277,7 +310,21 @@ class HyprMXAdapter : PartnerAdapter {
             if (hasGrantedCcpaConsent) CCPA_CONSENT_GRANTED
             else CCPA_CONSENT_DENIED
         )
-        // TODO: No CCPA APIs. Need to confirm.
+
+        when (hasGrantedCcpaConsent) {
+            true -> {
+                ConsentStatus.CONSENT_GIVEN.let {
+                    setUserConsent(context, it.ordinal)
+                    HyprMX.setConsentStatus(ConsentStatus.CONSENT_GIVEN)
+                }
+            }
+            false -> {
+                ConsentStatus.CONSENT_DECLINED.let {
+                    setUserConsent(context, it.ordinal)
+                    HyprMX.setConsentStatus(ConsentStatus.CONSENT_DECLINED)
+                }
+            }
+        }
     }
 
     /**
