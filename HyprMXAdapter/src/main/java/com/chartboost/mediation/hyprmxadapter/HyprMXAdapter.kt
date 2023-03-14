@@ -157,7 +157,6 @@ class HyprMXAdapter : PartnerAdapter {
                 (partnerConfiguration.credentials as JsonObject).getValue(DISTRIBUTOR_ID_KEY)
             ).trim()
                 .takeIf { it.isNotEmpty() }?.let { distributorId ->
-                    enableDebugLogs(true)
                     HyprMX.initialize(
                         context = context,
                         distributorId = distributorId,
