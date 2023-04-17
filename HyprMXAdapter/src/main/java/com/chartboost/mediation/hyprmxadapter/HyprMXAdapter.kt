@@ -29,7 +29,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
-import java.util.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -238,12 +237,14 @@ class HyprMXAdapter : PartnerAdapter {
                     HyprMX.setConsentStatus(it)
                 }
             }
+
             GdprConsentStatus.GDPR_CONSENT_DENIED -> {
                 ConsentStatus.CONSENT_DECLINED.let {
                     setUserConsent(context, it.ordinal)
                     HyprMX.setConsentStatus(it)
                 }
             }
+
             GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> {
                 ConsentStatus.CONSENT_STATUS_UNKNOWN.let {
                     setUserConsent(context, it.ordinal)
@@ -273,11 +274,11 @@ class HyprMXAdapter : PartnerAdapter {
      * @return An already stored user consent.
      */
     private fun getUserConsent(context: Context) = getConsentStatus(
-            context.getSharedPreferences(
-                HYPRMX_PREFS_KEY,
-                Context.MODE_PRIVATE
-            ).getInt(HYPRMX_USER_CONSENT_KEY, 0)
-        )
+        context.getSharedPreferences(
+            HYPRMX_PREFS_KEY,
+            Context.MODE_PRIVATE
+        ).getInt(HYPRMX_USER_CONSENT_KEY, 0)
+    )
 
     /**
      * Translate an integer value to a HyprMX user consent enum.
@@ -317,6 +318,7 @@ class HyprMXAdapter : PartnerAdapter {
                     HyprMX.setConsentStatus(ConsentStatus.CONSENT_GIVEN)
                 }
             }
+
             false -> {
                 ConsentStatus.CONSENT_DECLINED.let {
                     setUserConsent(context, it.ordinal)
@@ -728,7 +730,10 @@ class HyprMXAdapter : PartnerAdapter {
             PartnerLogController.log(INVALIDATE_SUCCEEDED)
             Result.success(partnerAd)
         } ?: run {
-            PartnerLogController.log(INVALIDATE_FAILED, "Ad is null or not an instance of HyprMXBannerView.")
+            PartnerLogController.log(
+                INVALIDATE_FAILED,
+                "Ad is null or not an instance of HyprMXBannerView."
+            )
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
         }
     }
