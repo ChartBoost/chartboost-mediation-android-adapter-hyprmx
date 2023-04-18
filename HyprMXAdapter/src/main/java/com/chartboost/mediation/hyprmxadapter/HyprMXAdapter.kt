@@ -37,7 +37,6 @@ import kotlin.coroutines.suspendCoroutine
  */
 class HyprMXAdapter : PartnerAdapter {
     companion object {
-
         /**
          * Enable HyprMX debug logs.
          * @param enabled True to enable debug logs, false otherwise.
@@ -54,11 +53,6 @@ class HyprMXAdapter : PartnerAdapter {
         fun longDebugLog(tag: String, message: String) {
             HyprMXLog.longDebugLog(tag, message)
         }
-
-        /**
-         * Key for parsing the HyperMX SDK distributor ID.
-         */
-        private const val DISTRIBUTOR_ID_KEY = "distributor_id"
 
         /**
          * HyprMX needs a unique generated identifier that needs to be static across sessions.
@@ -82,6 +76,11 @@ class HyprMXAdapter : PartnerAdapter {
          * Note: This property needs to be set before Chartboost Mediation SDK initialization.
          */
         var isAgeRestricted: Boolean = false
+
+        /**
+         * Key for parsing the HyperMX SDK distributor ID.
+         */
+        private const val DISTRIBUTOR_ID_KEY = "distributor_id"
 
         /**
          * HyprMX shared preference key.
@@ -231,38 +230,34 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         when (gdprConsentStatus) {
-            GdprConsentStatus.GDPR_CONSENT_GRANTED -> {
-                ConsentStatus.CONSENT_GIVEN.let {
-                    setUserConsent(context, it.ordinal)
-                    HyprMX.setConsentStatus(it)
-                }
-            }
+            GdprConsentStatus.GDPR_CONSENT_GRANTED -> setUserConsent(
+                context,
+                ConsentStatus.CONSENT_GIVEN
+            )
 
-            GdprConsentStatus.GDPR_CONSENT_DENIED -> {
-                ConsentStatus.CONSENT_DECLINED.let {
-                    setUserConsent(context, it.ordinal)
-                    HyprMX.setConsentStatus(it)
-                }
-            }
+            GdprConsentStatus.GDPR_CONSENT_DENIED -> setUserConsent(
+                context,
+                ConsentStatus.CONSENT_DECLINED
+            )
 
-            GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> {
-                ConsentStatus.CONSENT_STATUS_UNKNOWN.let {
-                    setUserConsent(context, it.ordinal)
-                    HyprMX.setConsentStatus(it)
-                }
-            }
+            GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> setUserConsent(
+                context,
+                ConsentStatus.CONSENT_STATUS_UNKNOWN
+            )
         }
     }
 
     /**
-     * Store a HyprMX user's consent value.
+     * Store a HyprMX user's consent value and set it to HyprMX.
      * This is passed on SDK initialization.
      *
      * @param context a context that will be passed to the SharedPreferences to set the user consent.
+     * @param consentStatus the consent status value to be stored.
      */
-    private fun setUserConsent(context: Context, consentStatus: Int) {
+    private fun setUserConsent(context: Context, consentStatus: ConsentStatus) {
         context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE).edit()
-            .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus).apply()
+            .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus.ordinal).apply()
+        HyprMX.setConsentStatus(consentStatus)
     }
 
     /**
@@ -312,19 +307,8 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         when (hasGrantedCcpaConsent) {
-            true -> {
-                ConsentStatus.CONSENT_GIVEN.let {
-                    setUserConsent(context, it.ordinal)
-                    HyprMX.setConsentStatus(ConsentStatus.CONSENT_GIVEN)
-                }
-            }
-
-            false -> {
-                ConsentStatus.CONSENT_DECLINED.let {
-                    setUserConsent(context, it.ordinal)
-                    HyprMX.setConsentStatus(ConsentStatus.CONSENT_DECLINED)
-                }
-            }
+            true -> setUserConsent(context, ConsentStatus.CONSENT_GIVEN)
+            false -> setUserConsent(context, ConsentStatus.CONSENT_DECLINED)
         }
     }
 
@@ -381,6 +365,10 @@ class HyprMXAdapter : PartnerAdapter {
             AdFormat.BANNER -> loadBannerAd(context, request, partnerAdListener)
             AdFormat.INTERSTITIAL -> loadInterstitialAd(request, partnerAdListener)
             AdFormat.REWARDED -> loadRewardedAd(request, partnerAdListener)
+            else -> {
+                PartnerLogController.log(LOAD_FAILED)
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+            }
         }
     }
 
@@ -401,7 +389,12 @@ class HyprMXAdapter : PartnerAdapter {
                 PartnerLogController.log(SHOW_SUCCEEDED)
                 Result.success(partnerAd)
             }
+
             AdFormat.INTERSTITIAL, AdFormat.REWARDED -> showFullscreenAd(partnerAd)
+            else -> {
+                PartnerLogController.log(SHOW_FAILED)
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+            }
         }
     }
 
@@ -419,6 +412,11 @@ class HyprMXAdapter : PartnerAdapter {
             AdFormat.BANNER -> destroyBannerAd(partnerAd)
             AdFormat.INTERSTITIAL, AdFormat.REWARDED -> {
                 // HyprMX does not have destroy methods for their fullscreen ads.
+                PartnerLogController.log(INVALIDATE_SUCCEEDED)
+                Result.success(partnerAd)
+            }
+
+            else -> {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
             }
