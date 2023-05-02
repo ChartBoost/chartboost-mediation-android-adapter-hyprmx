@@ -29,6 +29,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -55,21 +56,6 @@ class HyprMXAdapter : PartnerAdapter {
         }
 
         /**
-         * HyprMX needs a unique generated identifier that needs to be static across sessions.
-         * This is passed on SDK initialization.
-         * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
-         *
-         * This adapter will not generate a string that will be passed down to initialize HyprMX,
-         * nor will store it. The publisher will need to do this by overwriting this property
-         * when HyprMX SDK is used in mediation.
-         *
-         * The HyprMX SDK will not initialize on a null or empty string value.
-         *
-         * Note: This property needs to be set before Chartboost Mediation SDK initialization.
-         */
-        var userIdentifier: String? = null
-
-        /**
          * Sets the HyprMX user age restriction.
          * This is passed on SDK initialization.
          *
@@ -91,6 +77,11 @@ class HyprMXAdapter : PartnerAdapter {
          * HyprMX user consent key.
          */
         private const val HYPRMX_USER_CONSENT_KEY = "hyprmx_user_consent"
+
+        /**
+         * HyprMX gamer id key.
+         */
+        private const val HYPRMX_GAMER_ID_KEY = "hyprmx_gamer_id"
     }
 
     /**
@@ -158,7 +149,7 @@ class HyprMXAdapter : PartnerAdapter {
                     HyprMX.initialize(
                         context = context,
                         distributorId = distributorId,
-                        userId = userIdentifier,
+                        userId = getGamerId(context),
                         consentStatus = getUserConsent(context),
                         ageRestrictedUser = isAgeRestricted,
                         listener = object : HyprMXIf.HyprMXInitializationListener {
@@ -246,6 +237,24 @@ class HyprMXAdapter : PartnerAdapter {
             )
         }
     }
+
+    /**
+     * HyprMX needs a unique generated identifier that needs to be static across sessions.
+     * This is passed on SDK initialization.
+     * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
+     *
+     * @param context a context that will be passed to the SharedPreferences to set the user ID.
+     */
+    private fun getGamerId(context: Context) =
+        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
+            .let { sharedPreferences ->
+                // return an already set gamer id, otherwise generate and store one.
+                sharedPreferences.getString(HYPRMX_GAMER_ID_KEY, null) ?: run {
+                    UUID.randomUUID().toString().also { gamerId ->
+                        sharedPreferences.edit().putString(HYPRMX_GAMER_ID_KEY, gamerId).apply()
+                    }
+                }
+            }
 
     /**
      * Store a HyprMX user's consent value and set it to HyprMX.
