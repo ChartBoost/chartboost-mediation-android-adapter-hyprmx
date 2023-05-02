@@ -245,19 +245,16 @@ class HyprMXAdapter : PartnerAdapter {
      *
      * @param context a context that will be passed to the SharedPreferences to set the user ID.
      */
-    private fun getGamerId(context: Context): String {
+    private fun getGamerId(context: Context) =
         context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
             .let { sharedPreferences ->
-                sharedPreferences.getString(HYPRMX_GAMER_ID_KEY, null)?.let {
-                    return it
-                } ?: run {
-                    return UUID.randomUUID().toString().let { gamerId ->
+                // return an already set gamer id, otherwise generate and store one.
+                sharedPreferences.getString(HYPRMX_GAMER_ID_KEY, null) ?: run {
+                    UUID.randomUUID().toString().also { gamerId ->
                         sharedPreferences.edit().putString(HYPRMX_GAMER_ID_KEY, gamerId).apply()
-                        gamerId
                     }
                 }
             }
-    }
 
     /**
      * Store a HyprMX user's consent value and set it to HyprMX.
