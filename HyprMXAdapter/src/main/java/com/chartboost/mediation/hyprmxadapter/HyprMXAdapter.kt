@@ -495,7 +495,15 @@ class HyprMXAdapter : PartnerAdapter {
                         )
                     }
 
-                    override fun onAdOpened(ad: HyprMXBannerView) {}
+                    override fun onAdOpened(ad: HyprMXBannerView) {
+                        partnerAdListener.onPartnerAdImpression(
+                            PartnerAd(
+                                ad = request.partnerPlacement,
+                                details = emptyMap(),
+                                request = request
+                            )
+                        )
+                    }
                 }
                 loadAd()
             }
@@ -537,6 +545,13 @@ class HyprMXAdapter : PartnerAdapter {
                 setPlacementListener(object : PlacementListener {
                     override fun onAdStarted(placement: Placement?) {
                         PartnerLogController.log(SHOW_SUCCEEDED)
+                        partnerAdListener.onPartnerAdImpression(
+                            PartnerAd(
+                                ad = placement,
+                                details = emptyMap(),
+                                request = request
+                            )
+                        )
                         onShowSuccess()
                     }
 
@@ -608,6 +623,13 @@ class HyprMXAdapter : PartnerAdapter {
                 setPlacementListener(object : RewardedPlacementListener {
                     override fun onAdStarted(placement: Placement?) {
                         PartnerLogController.log(SHOW_SUCCEEDED)
+                        partnerAdListener.onPartnerAdImpression(
+                            PartnerAd(
+                                ad = placement,
+                                details = emptyMap(),
+                                request = request
+                            )
+                        )
                         onShowSuccess()
                     }
 
