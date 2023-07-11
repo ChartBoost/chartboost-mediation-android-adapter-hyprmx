@@ -312,8 +312,7 @@ class HyprMXAdapter : PartnerAdapter {
         ).getBoolean(HYPRMX_AGE_RESTRICTION_KEY, false)
 
     /**
-     * Store a HyprMX age restriction value and set it to HyprMX.
-     * This is passed on SDK initialization.
+     * Store an age restriction.
      *
      * @param context a context that will be passed to the SharedPreferences to set the user consent.
      * @param isAgeRestricted the age restriction value to be stored.
