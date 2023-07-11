@@ -56,14 +56,6 @@ class HyprMXAdapter : PartnerAdapter {
         }
 
         /**
-         * Sets the HyprMX user age restriction.
-         * This is passed on SDK initialization.
-         *
-         * Note: This property needs to be set before Chartboost Mediation SDK initialization.
-         */
-        var isAgeRestricted: Boolean = false
-
-        /**
          * Key for parsing the HyperMX SDK distributor ID.
          */
         private const val DISTRIBUTOR_ID_KEY = "distributor_id"
@@ -82,6 +74,11 @@ class HyprMXAdapter : PartnerAdapter {
          * HyprMX gamer id key.
          */
         private const val HYPRMX_GAMER_ID_KEY = "hyprmx_gamer_id"
+
+        /**
+         * HyprMX age restriction key.
+         */
+        private const val HYPRMX_AGE_RESTRICTION_KEY = "hyprmx_age_restriction"
     }
 
     /**
@@ -151,7 +148,7 @@ class HyprMXAdapter : PartnerAdapter {
                         distributorId = distributorId,
                         userId = getGamerId(context),
                         consentStatus = getUserConsent(context),
-                        ageRestrictedUser = isAgeRestricted,
+                        ageRestrictedUser = getAgeRestricted(context),
                         listener = object : HyprMXIf.HyprMXInitializationListener {
                             override fun initializationComplete() {
                                 continuation.resume(
@@ -299,6 +296,31 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
+     * Get a stored age restriction.
+     *
+     * @param context a context that will be passed to the SharedPreferences to get the age restriction.
+     *
+     * @return An already stored age restriction.
+     */
+    private fun getAgeRestricted(context: Context) =
+        context.getSharedPreferences(
+        HYPRMX_PREFS_KEY,
+        Context.MODE_PRIVATE
+    ).getBoolean(HYPRMX_AGE_RESTRICTION_KEY, false)
+
+    /**
+     * Store a HyprMX age restriction value and set it to HyprMX.
+     * This is passed on SDK initialization.
+     *
+     * @param context a context that will be passed to the SharedPreferences to set the user consent.
+     * @param isAgeRestricted the age restriction value to be stored.
+     */
+    private fun setAgeRestricted(context: Context, isAgeRestricted: Boolean) {
+        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE).edit()
+            .putBoolean(HYPRMX_AGE_RESTRICTION_KEY, isAgeRestricted).apply()
+    }
+
+    /**
      * Notify HyprMX of the CCPA compliance.
      *
      * @param context The current [Context].
@@ -334,7 +356,7 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         // COPPA is set on SDK initialization.
-        isAgeRestricted = isSubjectToCoppa
+        setAgeRestricted(context, isSubjectToCoppa)
     }
 
     /**
