@@ -11,6 +11,7 @@ import android.content.Context
 import android.util.Size
 import com.chartboost.heliumsdk.HeliumSdk
 import com.chartboost.heliumsdk.domain.*
+import com.chartboost.heliumsdk.utils.LogController
 import com.chartboost.heliumsdk.utils.PartnerLogController
 import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
 import com.hyprmx.android.sdk.banner.HyprMXBannerListener
@@ -248,7 +249,13 @@ class HyprMXAdapter : PartnerAdapter {
                 // return an already set gamer id, otherwise generate and store one.
                 sharedPreferences.getString(HYPRMX_GAMER_ID_KEY, null) ?: run {
                     UUID.randomUUID().toString().also { gamerId ->
-                        sharedPreferences.edit().putString(HYPRMX_GAMER_ID_KEY, gamerId).apply()
+                        val prefsWriteSucceeded = sharedPreferences.edit().putString(HYPRMX_GAMER_ID_KEY, gamerId).commit()
+                        PartnerLogController.log(
+                            CUSTOM,
+                            "Gamer ID ${
+                                if (prefsWriteSucceeded) "was" else "was not"
+                            } successfully stored."
+                        )
                     }
                 }
             }
@@ -261,12 +268,22 @@ class HyprMXAdapter : PartnerAdapter {
      * @param consentStatus the consent status value to be stored.
      */
     private fun setUserConsent(context: Context, consentStatus: ConsentStatus) {
-        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
+        val prefsWriteSucceeded = context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
             .edit()
             .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus.ordinal)
-            .apply()
+            .commit()
 
-        HyprMX.setConsentStatus(consentStatus)
+        PartnerLogController.log(
+            CUSTOM,
+            "User consent ${
+                if (prefsWriteSucceeded) "was" else "was not"
+            } successfully stored."
+        )
+
+        when (prefsWriteSucceeded) {
+            true -> HyprMX.setConsentStatus(consentStatus)
+            else -> {}
+        }
     }
 
     /**
@@ -318,10 +335,17 @@ class HyprMXAdapter : PartnerAdapter {
      * @param isAgeRestricted the age restriction value to be stored.
      */
     private fun setAgeRestricted(context: Context, isAgeRestricted: Boolean) {
-        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
+        val prefsWriteSucceeded = context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(HYPRMX_AGE_RESTRICTION_KEY, isAgeRestricted)
-            .apply()
+            .commit()
+
+        PartnerLogController.log(
+            CUSTOM,
+            "Age restriction ${
+                if (prefsWriteSucceeded) "was" else "was not"
+            } successfully stored."
+        )
     }
 
     /**
