@@ -279,9 +279,8 @@ class HyprMXAdapter : PartnerAdapter {
             } successfully stored."
         )
 
-        when (prefsWriteSucceeded) {
-            true -> HyprMX.setConsentStatus(consentStatus)
-            else -> {}
+        if (prefsWriteSucceeded) {
+            HyprMX.setConsentStatus(consentStatus)
         }
     }
 
