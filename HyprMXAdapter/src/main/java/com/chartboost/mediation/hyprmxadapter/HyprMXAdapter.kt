@@ -261,8 +261,11 @@ class HyprMXAdapter : PartnerAdapter {
      * @param consentStatus the consent status value to be stored.
      */
     private fun setUserConsent(context: Context, consentStatus: ConsentStatus) {
-        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE).edit()
-            .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus.ordinal).apply()
+        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus.ordinal)
+            .apply()
+
         HyprMX.setConsentStatus(consentStatus)
     }
 
@@ -304,9 +307,9 @@ class HyprMXAdapter : PartnerAdapter {
      */
     private fun getAgeRestricted(context: Context) =
         context.getSharedPreferences(
-        HYPRMX_PREFS_KEY,
-        Context.MODE_PRIVATE
-    ).getBoolean(HYPRMX_AGE_RESTRICTION_KEY, false)
+            HYPRMX_PREFS_KEY,
+            Context.MODE_PRIVATE
+        ).getBoolean(HYPRMX_AGE_RESTRICTION_KEY, false)
 
     /**
      * Store a HyprMX age restriction value and set it to HyprMX.
@@ -316,8 +319,10 @@ class HyprMXAdapter : PartnerAdapter {
      * @param isAgeRestricted the age restriction value to be stored.
      */
     private fun setAgeRestricted(context: Context, isAgeRestricted: Boolean) {
-        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE).edit()
-            .putBoolean(HYPRMX_AGE_RESTRICTION_KEY, isAgeRestricted).apply()
+        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(HYPRMX_AGE_RESTRICTION_KEY, isAgeRestricted)
+            .apply()
     }
 
     /**
