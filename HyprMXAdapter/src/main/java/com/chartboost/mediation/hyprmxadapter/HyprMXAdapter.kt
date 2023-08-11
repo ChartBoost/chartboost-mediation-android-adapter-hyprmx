@@ -74,11 +74,6 @@ class HyprMXAdapter : PartnerAdapter {
          * HyprMX gamer id key.
          */
         private const val HYPRMX_GAMER_ID_KEY = "hyprmx_gamer_id"
-
-        /**
-         * HyprMX age restriction key.
-         */
-        private const val HYPRMX_AGE_RESTRICTION_KEY = "hyprmx_age_restriction"
     }
 
     /**
@@ -148,7 +143,7 @@ class HyprMXAdapter : PartnerAdapter {
                         distributorId = distributorId,
                         userId = getGamerId(context),
                         consentStatus = getUserConsent(context),
-                        ageRestrictedUser = getAgeRestricted(context),
+                        ageRestrictedUser = true,
                         listener = object : HyprMXIf.HyprMXInitializationListener {
                             override fun initializationComplete() {
                                 continuation.resume(
@@ -314,39 +309,6 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
-     * Get a stored age restriction.
-     *
-     * @param context a context that will be passed to the SharedPreferences to get the age restriction.
-     *
-     * @return An already stored age restriction.
-     */
-    private fun getAgeRestricted(context: Context) =
-        context.getSharedPreferences(
-            HYPRMX_PREFS_KEY,
-            Context.MODE_PRIVATE
-        ).getBoolean(HYPRMX_AGE_RESTRICTION_KEY, false)
-
-    /**
-     * Store an age restriction.
-     *
-     * @param context a context that will be passed to the SharedPreferences to set the user consent.
-     * @param isAgeRestricted the age restriction value to be stored.
-     */
-    private fun setAgeRestricted(context: Context, isAgeRestricted: Boolean) {
-        val prefsWriteSucceeded = context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(HYPRMX_AGE_RESTRICTION_KEY, isAgeRestricted)
-            .commit()
-
-        PartnerLogController.log(
-            CUSTOM,
-            "Age restriction ${
-                if (prefsWriteSucceeded) "was" else "was not"
-            } successfully stored."
-        )
-    }
-
-    /**
      * Notify HyprMX of the CCPA compliance.
      *
      * @param context The current [Context].
@@ -381,8 +343,7 @@ class HyprMXAdapter : PartnerAdapter {
             else COPPA_NOT_SUBJECT
         )
 
-        // COPPA is set on SDK initialization.
-        setAgeRestricted(context, isSubjectToCoppa)
+        // COPPA is always set to true on SDK initialization.
     }
 
     /**
