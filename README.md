@@ -13,7 +13,7 @@ The Chartboost Mediation HyprMX adapter mediates HyprMX via the Chartboost Media
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-hyprmx:4.6.2.0.1"
+    implementation "com.chartboost:chartboost-mediation-adapter-hyprmx:4.6.2.0.2"
 ```
 
 ## Contributions
