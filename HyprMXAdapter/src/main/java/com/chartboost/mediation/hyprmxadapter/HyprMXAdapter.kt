@@ -275,6 +275,7 @@ class HyprMXAdapter : PartnerAdapter {
             } successfully stored."
         )
 
+        // The HyprMX SDK throws an exception when the setConsentStatus API is used before the SDK has initialized.
         if (prefsWriteSucceeded && HyprMX.getInitializationState() == HyprMXState.INITIALIZATION_COMPLETE) {
             HyprMX.setConsentStatus(consentStatus)
         }
