@@ -20,6 +20,7 @@ import com.hyprmx.android.sdk.consent.ConsentStatus
 import com.hyprmx.android.sdk.core.HyprMX
 import com.hyprmx.android.sdk.core.HyprMXErrors
 import com.hyprmx.android.sdk.core.HyprMXIf
+import com.hyprmx.android.sdk.core.HyprMXState
 import com.hyprmx.android.sdk.placement.Placement
 import com.hyprmx.android.sdk.placement.PlacementListener
 import com.hyprmx.android.sdk.placement.RewardedPlacementListener
@@ -274,7 +275,7 @@ class HyprMXAdapter : PartnerAdapter {
             } successfully stored."
         )
 
-        if (prefsWriteSucceeded) {
+        if (prefsWriteSucceeded && HyprMX.getInitializationState() == HyprMXState.INITIALIZATION_COMPLETE) {
             HyprMX.setConsentStatus(consentStatus)
         }
     }
