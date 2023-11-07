@@ -786,7 +786,7 @@ class HyprMXAdapter : PartnerAdapter {
      */
     private fun checkHyprMxInitStateAndRun(function: () -> Unit) {
         if (HyprMX.getInitializationState() != HyprMXState.INITIALIZATION_COMPLETE) {
-            PartnerLogController.log(CUSTOM, "Delaying $function until HyprMX SDK initialized.")
+            PartnerLogController.log(CUSTOM, "Ignoring $function until HyprMX SDK has initialized.")
             return
         }
         function()
