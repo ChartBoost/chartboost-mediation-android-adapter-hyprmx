@@ -4,7 +4,7 @@ Note the first digit of every adapter version corresponds to the major version o
 Adapters are compatible with any Chartboost Mediation SDK version within that major version.
 
 ### 4.6.2.0.3
-- Set user consent when the HyprMX SDK has initialized.
+- Removes a print stack trace when the user consent was being set before the HyprMX SDK was initialized.
 
 ### 4.6.2.0.2
 - Updated to handle recent AdFormat changes.

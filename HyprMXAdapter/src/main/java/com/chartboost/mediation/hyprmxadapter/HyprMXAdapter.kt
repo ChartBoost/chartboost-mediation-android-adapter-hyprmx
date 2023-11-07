@@ -781,6 +781,8 @@ class HyprMXAdapter : PartnerAdapter {
     /**
      * Checks that the HyprMX initialization state has completed. If so, then run the function;
      * otherwise, do nothing.
+     *
+     * @param function the function that will be run after the initialization state check was successful.
      */
     private fun checkHyprMxInitStateAndRun(function: () -> Unit) {
         if (HyprMX.getInitializationState() != HyprMXState.INITIALIZATION_COMPLETE) {
