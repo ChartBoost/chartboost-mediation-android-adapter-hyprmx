@@ -20,6 +20,7 @@ import com.hyprmx.android.sdk.consent.ConsentStatus
 import com.hyprmx.android.sdk.core.HyprMX
 import com.hyprmx.android.sdk.core.HyprMXErrors
 import com.hyprmx.android.sdk.core.HyprMXIf
+import com.hyprmx.android.sdk.core.HyprMXState
 import com.hyprmx.android.sdk.placement.Placement
 import com.hyprmx.android.sdk.placement.PlacementListener
 import com.hyprmx.android.sdk.placement.RewardedPlacementListener
@@ -213,20 +214,26 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         when (gdprConsentStatus) {
-            GdprConsentStatus.GDPR_CONSENT_GRANTED -> setUserConsent(
-                context,
-                ConsentStatus.CONSENT_GIVEN
-            )
+            GdprConsentStatus.GDPR_CONSENT_GRANTED -> checkHyprMxInitStateAndRun {
+                setUserConsentTask(
+                    context,
+                    ConsentStatus.CONSENT_GIVEN
+                )
+            }
 
-            GdprConsentStatus.GDPR_CONSENT_DENIED -> setUserConsent(
-                context,
-                ConsentStatus.CONSENT_DECLINED
-            )
+            GdprConsentStatus.GDPR_CONSENT_DENIED -> checkHyprMxInitStateAndRun {
+                setUserConsentTask(
+                    context,
+                    ConsentStatus.CONSENT_DECLINED
+                )
+            }
 
-            GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> setUserConsent(
-                context,
-                ConsentStatus.CONSENT_STATUS_UNKNOWN
-            )
+            GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> checkHyprMxInitStateAndRun {
+                setUserConsentTask(
+                    context,
+                    ConsentStatus.CONSENT_STATUS_UNKNOWN
+                )
+            }
         }
     }
 
@@ -261,7 +268,7 @@ class HyprMXAdapter : PartnerAdapter {
      * @param context a context that will be passed to the SharedPreferences to set the user consent.
      * @param consentStatus the consent status value to be stored.
      */
-    private fun setUserConsent(context: Context, consentStatus: ConsentStatus) {
+    private fun setUserConsentTask(context: Context, consentStatus: ConsentStatus) {
         val prefsWriteSucceeded = context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
             .edit()
             .putInt(HYPRMX_USER_CONSENT_KEY, consentStatus.ordinal)
@@ -326,8 +333,8 @@ class HyprMXAdapter : PartnerAdapter {
         )
 
         when (hasGrantedCcpaConsent) {
-            true -> setUserConsent(context, ConsentStatus.CONSENT_GIVEN)
-            false -> setUserConsent(context, ConsentStatus.CONSENT_DECLINED)
+            true -> checkHyprMxInitStateAndRun { setUserConsentTask(context, ConsentStatus.CONSENT_GIVEN) }
+            false -> checkHyprMxInitStateAndRun { setUserConsentTask(context, ConsentStatus.CONSENT_DECLINED) }
         }
     }
 
@@ -769,5 +776,19 @@ class HyprMXAdapter : PartnerAdapter {
         HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
         HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
         else -> ChartboostMediationError.CM_PARTNER_ERROR
+    }
+
+    /**
+     * Checks that the HyprMX initialization state has completed. If so, then run the function;
+     * otherwise, do nothing.
+     *
+     * @param function the function that will be run after the initialization state check was successful.
+     */
+    private fun checkHyprMxInitStateAndRun(function: () -> Unit) {
+        if (HyprMX.getInitializationState() != HyprMXState.INITIALIZATION_COMPLETE) {
+            PartnerLogController.log(CUSTOM, "Cannot run $function. The HyprMX SDK has not initialized.")
+            return
+        }
+        function()
     }
 }
