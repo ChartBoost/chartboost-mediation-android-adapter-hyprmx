@@ -759,6 +759,7 @@ class HyprMXAdapter : PartnerAdapter {
         override fun onAdStarted(placement: Placement?) {
             PartnerLogController.log(SHOW_SUCCEEDED)
             onShowSuccess()
+            onShowSuccess = {}
         }
 
         override fun onAdClosed(
@@ -783,6 +784,7 @@ class HyprMXAdapter : PartnerAdapter {
             PartnerLogController.log(SHOW_FAILED)
             hyprMXError?.let {
                 onShowError(it)
+                onShowError = {}
             }
         }
 
@@ -837,6 +839,7 @@ class HyprMXAdapter : PartnerAdapter {
         override fun onAdStarted(placement: Placement?) {
             PartnerLogController.log(SHOW_SUCCEEDED)
             onShowSuccess()
+            onShowSuccess = {}
         }
 
         override fun onAdClosed(
@@ -861,6 +864,7 @@ class HyprMXAdapter : PartnerAdapter {
             PartnerLogController.log(SHOW_FAILED)
             hyprMXError?.let {
                 onShowError(it)
+                onShowError = {}
             }
         }
 
