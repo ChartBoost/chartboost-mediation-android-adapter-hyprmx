@@ -766,15 +766,21 @@ class HyprMXAdapter : PartnerAdapter {
             suspendCancellableCoroutine { continuation ->
                 val weakContinuationRef = WeakReference(continuation)
 
-                onShowSuccess = {
-                    PartnerLogController.log(SHOW_SUCCEEDED)
+                fun resumeOnce(result: Result<PartnerAd>) {
                     weakContinuationRef.get()?.let {
                         if (it.isActive) {
-                            it.resume(Result.success(partnerAd))
+                            it.resume(result)
                         }
                     } ?: run {
-                        PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation in onShowSuccess. Continuation is null.")
+                        PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation once. Continuation is null.")
                     }
+                }
+
+                onShowSuccess = {
+                    PartnerLogController.log(SHOW_SUCCEEDED)
+                    resumeOnce(
+                        Result.success(partnerAd)
+                    )
                 }
 
                 onShowError = { error ->
@@ -783,19 +789,13 @@ class HyprMXAdapter : PartnerAdapter {
                         "Failed to show due to error: ${getChartboostMediationError(error)}",
                     )
 
-                    weakContinuationRef.get()?.let {
-                        if (it.isActive) {
-                            it.resume(
-                                Result.failure(
-                                    ChartboostMediationAdException(
-                                        getChartboostMediationError(error),
-                                    ),
-                                ),
-                            )
-                        }
-                    } ?: run {
-                        PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation in onShowError. Continuation is null.")
-                    }
+                    resumeOnce(
+                        Result.failure(
+                            ChartboostMediationAdException(
+                                getChartboostMediationError(error),
+                            ),
+                        ),
+                    )
                 }
                 if (placement.isAdAvailable()) placement.showAd()
             }
