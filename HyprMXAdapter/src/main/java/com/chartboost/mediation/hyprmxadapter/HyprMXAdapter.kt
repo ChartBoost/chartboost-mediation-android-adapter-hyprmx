@@ -30,6 +30,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import java.lang.ref.WeakReference
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -78,6 +79,35 @@ class HyprMXAdapter : PartnerAdapter {
          * HyprMX gamer id key.
          */
         private const val HYPRMX_GAMER_ID_KEY = "hyprmx_gamer_id"
+
+        /**
+         * Convert a given HyprMX error code into a [ChartboostMediationError].
+         *
+         * @param error The HyprMX error code as an [Int].
+         *
+         * @return The corresponding [ChartboostMediationError].
+         */
+        internal fun getChartboostMediationError(error: HyprMXErrors) =
+            when (error) {
+                HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
+                HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
+                HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
+                HyprMXErrors.PLACEMENT_NAME_NOT_SET,
+                -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
+                HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
+                HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
+                else -> ChartboostMediationError.CM_PARTNER_ERROR
+            }
+
+        /**
+         * A lambda to call for successful HyprMX ad shows.
+         */
+        internal var onShowSuccess: () -> Unit = {}
+
+        /**
+         * A lambda to call for failed HyprMX ad shows.
+         */
+        internal var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
     }
 
     /**
@@ -112,16 +142,6 @@ class HyprMXAdapter : PartnerAdapter {
      */
     override val partnerDisplayName: String
         get() = "HyprMX"
-
-    /**
-     * A lambda to call for successful HyprMX ad shows.
-     */
-    private var onShowSuccess: () -> Unit = {}
-
-    /**
-     * A lambda to call for failed HyprMX ad shows.
-     */
-    private var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
 
     /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
@@ -744,9 +764,17 @@ class HyprMXAdapter : PartnerAdapter {
         PartnerLogController.log(SHOW_STARTED)
         return (partnerAd.ad as? Placement)?.let { placement ->
             suspendCancellableCoroutine { continuation ->
+                val weakContinuationRef = WeakReference(continuation)
+
                 onShowSuccess = {
                     PartnerLogController.log(SHOW_SUCCEEDED)
-                    continuation.resume(Result.success(partnerAd))
+                    weakContinuationRef.get()?.let {
+                        if (it.isActive) {
+                            it.resume(Result.success(partnerAd))
+                        }
+                    } ?: run {
+                        PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation in onShowSuccess. Continuation is null.")
+                    }
                 }
 
                 onShowError = { error ->
@@ -754,13 +782,20 @@ class HyprMXAdapter : PartnerAdapter {
                         SHOW_FAILED,
                         "Failed to show due to error: ${getChartboostMediationError(error)}",
                     )
-                    continuation.resume(
-                        Result.failure(
-                            ChartboostMediationAdException(
-                                getChartboostMediationError(error),
-                            ),
-                        ),
-                    )
+
+                    weakContinuationRef.get()?.let {
+                        if (it.isActive) {
+                            it.resume(
+                                Result.failure(
+                                    ChartboostMediationAdException(
+                                        getChartboostMediationError(error),
+                                    ),
+                                ),
+                            )
+                        }
+                    } ?: run {
+                        PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation in onShowError. Continuation is null.")
+                    }
                 }
                 if (placement.isAdAvailable()) placement.showAd()
             }
@@ -798,25 +833,6 @@ class HyprMXAdapter : PartnerAdapter {
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
         }
     }
-
-    /**
-     * Convert a given HyprMX error code into a [ChartboostMediationError].
-     *
-     * @param error The HyprMX error code as an [Int].
-     *
-     * @return The corresponding [ChartboostMediationError].
-     */
-    private fun getChartboostMediationError(error: HyprMXErrors) =
-        when (error) {
-            HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-            HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
-            HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
-            HyprMXErrors.PLACEMENT_NAME_NOT_SET,
-            -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
-            HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
-            HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
-            else -> ChartboostMediationError.CM_PARTNER_ERROR
-        }
 
     /**
      * Checks that the HyprMX initialization state has completed. If so, then run the function;
