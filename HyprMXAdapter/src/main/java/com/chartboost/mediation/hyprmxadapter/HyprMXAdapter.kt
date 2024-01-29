@@ -26,10 +26,12 @@ import com.hyprmx.android.sdk.placement.PlacementListener
 import com.hyprmx.android.sdk.placement.RewardedPlacementListener
 import com.hyprmx.android.sdk.utility.HyprMXLog
 import com.hyprmx.android.sdk.utility.HyprMXProperties
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import java.lang.ref.WeakReference
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -78,6 +80,35 @@ class HyprMXAdapter : PartnerAdapter {
          * HyprMX gamer id key.
          */
         private const val HYPRMX_GAMER_ID_KEY = "hyprmx_gamer_id"
+
+        /**
+         * Convert a given HyprMX error code into a [ChartboostMediationError].
+         *
+         * @param error The HyprMX error code as an [Int].
+         *
+         * @return The corresponding [ChartboostMediationError].
+         */
+        internal fun getChartboostMediationError(error: HyprMXErrors) =
+            when (error) {
+                HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
+                HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
+                HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
+                HyprMXErrors.PLACEMENT_NAME_NOT_SET,
+                -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
+                HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
+                HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
+                else -> ChartboostMediationError.CM_PARTNER_ERROR
+            }
+
+        /**
+         * A lambda to call for successful HyprMX ad shows.
+         */
+        internal var onShowSuccess: () -> Unit = {}
+
+        /**
+         * A lambda to call for failed HyprMX ad shows.
+         */
+        internal var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
     }
 
     /**
@@ -112,16 +143,6 @@ class HyprMXAdapter : PartnerAdapter {
      */
     override val partnerDisplayName: String
         get() = "HyprMX"
-
-    /**
-     * A lambda to call for successful HyprMX ad shows.
-     */
-    private var onShowSuccess: () -> Unit = {}
-
-    /**
-     * A lambda to call for failed HyprMX ad shows.
-     */
-    private var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
 
     /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
@@ -578,64 +599,14 @@ class HyprMXAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
-        return suspendCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
             HyprMX.getPlacement(request.partnerPlacement).apply {
                 setPlacementListener(
-                    object : PlacementListener {
-                        override fun onAdStarted(placement: Placement?) {
-                            PartnerLogController.log(SHOW_SUCCEEDED)
-                            onShowSuccess()
-                        }
-
-                        override fun onAdClosed(
-                            placement: Placement?,
-                            finished: Boolean,
-                        ) {
-                            PartnerLogController.log(DID_DISMISS)
-                            partnerAdListener.onPartnerAdDismissed(
-                                PartnerAd(
-                                    ad = placement,
-                                    details = emptyMap(),
-                                    request = request,
-                                ),
-                                null,
-                            )
-                        }
-
-                        override fun onAdDisplayError(
-                            placement: Placement?,
-                            hyprMXError: HyprMXErrors?,
-                        ) {
-                            PartnerLogController.log(SHOW_FAILED)
-                            hyprMXError?.let {
-                                onShowError(it)
-                            }
-                        }
-
-                        override fun onAdAvailable(placement: Placement?) {
-                            PartnerLogController.log(LOAD_SUCCEEDED)
-                            continuation.resume(
-                                Result.success(
-                                    PartnerAd(
-                                        ad = placement,
-                                        details = emptyMap(),
-                                        request = request,
-                                    ),
-                                ),
-                            )
-                        }
-
-                        override fun onAdNotAvailable(placement: Placement?) {
-                            PartnerLogController.log(LOAD_FAILED)
-                            continuation.resume(
-                                Result.failure(
-                                    ChartboostMediationAdException(
-                                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
-                                    ),
-                                ),
-                            )
-                        }
-                    },
+                    InterstitialAdListener(
+                        continuationRef = WeakReference(continuation),
+                        request = request,
+                        listener = partnerAdListener
+                    )
                 )
                 loadAd()
             }
@@ -654,79 +625,14 @@ class HyprMXAdapter : PartnerAdapter {
         request: PartnerAdLoadRequest,
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
-        return suspendCoroutine { continuation ->
+        return suspendCancellableCoroutine { continuation ->
             HyprMX.getPlacement(request.partnerPlacement).apply {
                 setPlacementListener(
-                    object : RewardedPlacementListener {
-                        override fun onAdStarted(placement: Placement?) {
-                            PartnerLogController.log(SHOW_SUCCEEDED)
-                            onShowSuccess()
-                        }
-
-                        override fun onAdClosed(
-                            placement: Placement?,
-                            finished: Boolean,
-                        ) {
-                            PartnerLogController.log(DID_DISMISS)
-                            partnerAdListener.onPartnerAdDismissed(
-                                PartnerAd(
-                                    ad = placement,
-                                    details = emptyMap(),
-                                    request = request,
-                                ),
-                                null,
-                            )
-                        }
-
-                        override fun onAdDisplayError(
-                            placement: Placement?,
-                            hyprMXError: HyprMXErrors?,
-                        ) {
-                            PartnerLogController.log(SHOW_FAILED)
-                            hyprMXError?.let {
-                                onShowError(it)
-                            }
-                        }
-
-                        override fun onAdAvailable(placement: Placement?) {
-                            PartnerLogController.log(LOAD_SUCCEEDED)
-                            continuation.resume(
-                                Result.success(
-                                    PartnerAd(
-                                        ad = placement,
-                                        details = emptyMap(),
-                                        request = request,
-                                    ),
-                                ),
-                            )
-                        }
-
-                        override fun onAdNotAvailable(placement: Placement?) {
-                            PartnerLogController.log(LOAD_FAILED)
-                            continuation.resume(
-                                Result.failure(
-                                    ChartboostMediationAdException(
-                                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
-                                    ),
-                                ),
-                            )
-                        }
-
-                        override fun onAdRewarded(
-                            placement: Placement,
-                            rewardName: String,
-                            rewardValue: Int,
-                        ) {
-                            PartnerLogController.log(DID_REWARD)
-                            partnerAdListener.onPartnerAdRewarded(
-                                PartnerAd(
-                                    ad = placement,
-                                    details = emptyMap(),
-                                    request = request,
-                                ),
-                            )
-                        }
-                    },
+                    RewardedAdListener(
+                        continuationRef = WeakReference(continuation),
+                        request = request,
+                        listener = partnerAdListener,
+                    ),
                 )
                 loadAd()
             }
@@ -744,9 +650,23 @@ class HyprMXAdapter : PartnerAdapter {
         PartnerLogController.log(SHOW_STARTED)
         return (partnerAd.ad as? Placement)?.let { placement ->
             suspendCancellableCoroutine { continuation ->
+                val weakContinuationRef = WeakReference(continuation)
+
+                fun resumeOnce(result: Result<PartnerAd>) {
+                    weakContinuationRef.get()?.let {
+                        if (it.isActive) {
+                            it.resume(result)
+                        }
+                    } ?: run {
+                        PartnerLogController.log(SHOW_FAILED, "Unable to resume continuation once. Continuation is null.")
+                    }
+                }
+
                 onShowSuccess = {
                     PartnerLogController.log(SHOW_SUCCEEDED)
-                    continuation.resume(Result.success(partnerAd))
+                    resumeOnce(
+                        Result.success(partnerAd)
+                    )
                 }
 
                 onShowError = { error ->
@@ -754,7 +674,8 @@ class HyprMXAdapter : PartnerAdapter {
                         SHOW_FAILED,
                         "Failed to show due to error: ${getChartboostMediationError(error)}",
                     )
-                    continuation.resume(
+
+                    resumeOnce(
                         Result.failure(
                             ChartboostMediationAdException(
                                 getChartboostMediationError(error),
@@ -800,25 +721,6 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
-     * Convert a given HyprMX error code into a [ChartboostMediationError].
-     *
-     * @param error The HyprMX error code as an [Int].
-     *
-     * @return The corresponding [ChartboostMediationError].
-     */
-    private fun getChartboostMediationError(error: HyprMXErrors) =
-        when (error) {
-            HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-            HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
-            HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
-            HyprMXErrors.PLACEMENT_NAME_NOT_SET,
-            -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
-            HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
-            HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
-            else -> ChartboostMediationError.CM_PARTNER_ERROR
-        }
-
-    /**
      * Checks that the HyprMX initialization state has completed. If so, then run the function;
      * otherwise, do nothing.
      *
@@ -830,5 +732,179 @@ class HyprMXAdapter : PartnerAdapter {
             return
         }
         function()
+    }
+
+    /**
+     * Callback class for interstitial ads.
+     *
+     * @param continuationRef A [WeakReference] to the [CancellableContinuation] to be resumed once the ad is shown.
+     * @param request A [PartnerAdLoadRequest] object containing the request.
+     * @param listener A [PartnerAdListener] to be notified of ad events.
+     */
+    private class InterstitialAdListener(
+        private val continuationRef: WeakReference<CancellableContinuation<Result<PartnerAd>>>,
+        private val request: PartnerAdLoadRequest,
+        private val listener: PartnerAdListener,
+    ) : PlacementListener {
+        fun resumeOnce(result: Result<PartnerAd>) {
+            continuationRef.get()?.let {
+                if (it.isActive) {
+                    it.resume(result)
+                }
+            } ?: run {
+                PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation. Continuation is null.")
+            }
+        }
+
+        override fun onAdStarted(placement: Placement?) {
+            PartnerLogController.log(SHOW_SUCCEEDED)
+            onShowSuccess()
+            onShowSuccess = {}
+        }
+
+        override fun onAdClosed(
+            placement: Placement?,
+            finished: Boolean,
+        ) {
+            PartnerLogController.log(DID_DISMISS)
+            listener.onPartnerAdDismissed(
+                PartnerAd(
+                    ad = placement,
+                    details = emptyMap(),
+                    request = request,
+                ),
+                null,
+            )
+        }
+
+        override fun onAdDisplayError(
+            placement: Placement?,
+            hyprMXError: HyprMXErrors?,
+        ) {
+            PartnerLogController.log(SHOW_FAILED)
+            hyprMXError?.let {
+                onShowError(it)
+                onShowError = {}
+            }
+        }
+
+        override fun onAdAvailable(placement: Placement?) {
+            PartnerLogController.log(LOAD_SUCCEEDED)
+            resumeOnce(
+                Result.success(
+                    PartnerAd(
+                        ad = placement,
+                        details = emptyMap(),
+                        request = request,
+                    ),
+                ),
+            )
+        }
+
+        override fun onAdNotAvailable(placement: Placement?) {
+            PartnerLogController.log(LOAD_FAILED)
+            resumeOnce(
+                Result.failure(
+                    ChartboostMediationAdException(
+                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
+                    ),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Callback class for rewarded ads.
+     *
+     * @param continuationRef A [WeakReference] to the [CancellableContinuation] to be resumed once the ad is shown.
+     * @param request A [PartnerAdLoadRequest] object containing the request.
+     * @param listener A [PartnerAdListener] to be notified of ad events.
+     */
+    private class RewardedAdListener(
+        private val continuationRef: WeakReference<CancellableContinuation<Result<PartnerAd>>>,
+        private val request: PartnerAdLoadRequest,
+        private val listener: PartnerAdListener,
+    ) : RewardedPlacementListener {
+
+        fun resumeOnce(result: Result<PartnerAd>) {
+            continuationRef.get()?.let {
+                if (it.isActive) {
+                    it.resume(result)
+                }
+            } ?: run {
+                PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation. Continuation is null.")
+            }
+        }
+
+        override fun onAdStarted(placement: Placement?) {
+            PartnerLogController.log(SHOW_SUCCEEDED)
+            onShowSuccess()
+            onShowSuccess = {}
+        }
+
+        override fun onAdClosed(
+            placement: Placement?,
+            finished: Boolean,
+        ) {
+            PartnerLogController.log(DID_DISMISS)
+            listener.onPartnerAdDismissed(
+                PartnerAd(
+                    ad = placement,
+                    details = emptyMap(),
+                    request = request,
+                ),
+                null,
+            )
+        }
+
+        override fun onAdDisplayError(
+            placement: Placement?,
+            hyprMXError: HyprMXErrors?,
+        ) {
+            PartnerLogController.log(SHOW_FAILED)
+            hyprMXError?.let {
+                onShowError(it)
+                onShowError = {}
+            }
+        }
+
+        override fun onAdAvailable(placement: Placement?) {
+            PartnerLogController.log(LOAD_SUCCEEDED)
+            resumeOnce(
+                Result.success(
+                    PartnerAd(
+                        ad = placement,
+                        details = emptyMap(),
+                        request = request,
+                    ),
+                ),
+            )
+        }
+
+        override fun onAdNotAvailable(placement: Placement?) {
+            PartnerLogController.log(LOAD_FAILED)
+            resumeOnce(
+                Result.failure(
+                    ChartboostMediationAdException(
+                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
+                    ),
+                ),
+            )
+        }
+
+        override fun onAdRewarded(
+            placement: Placement,
+            rewardName: String,
+            rewardValue: Int,
+        ) {
+            PartnerLogController.log(DID_REWARD)
+            listener.onPartnerAdRewarded(
+                PartnerAd(
+                    ad = placement,
+                    details = emptyMap(),
+                    request = request,
+                ),
+            )
+        }
     }
 }
