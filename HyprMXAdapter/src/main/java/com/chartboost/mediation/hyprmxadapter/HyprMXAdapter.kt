@@ -1,6 +1,6 @@
 /*
  * Copyright 2023-2024 Chartboost, Inc.
- * 
+ *
  * Use of this source code is governed by an MIT-style
  * license that can be found in the LICENSE file.
  */
@@ -9,10 +9,10 @@ package com.chartboost.mediation.hyprmxadapter
 
 import android.content.Context
 import android.util.Size
-import com.chartboost.heliumsdk.HeliumSdk
-import com.chartboost.heliumsdk.domain.*
-import com.chartboost.heliumsdk.utils.PartnerLogController
-import com.chartboost.heliumsdk.utils.PartnerLogController.PartnerAdapterEvents.*
+import com.chartboost.chartboostmediationsdk.ChartboostMediationSdk
+import com.chartboost.chartboostmediationsdk.domain.*
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.*
 import com.hyprmx.android.sdk.banner.HyprMXBannerListener
 import com.hyprmx.android.sdk.banner.HyprMXBannerSize
 import com.hyprmx.android.sdk.banner.HyprMXBannerView
@@ -200,7 +200,7 @@ class HyprMXAdapter : PartnerAdapter {
                     // Set the Mediation Provider.
                     HyprMX.setMediationProvider(
                         mediator = "Chartboost Mediation",
-                        mediatorSDKVersion = HeliumSdk.getVersion(),
+                        mediatorSDKVersion = ChartboostMediationSdk.getVersion(),
                         adapterVersion = adapterVersion,
                     )
                 } ?: run {
@@ -654,7 +654,7 @@ class HyprMXAdapter : PartnerAdapter {
                 onShowSuccess = {
                     PartnerLogController.log(SHOW_SUCCEEDED)
                     resumeOnce(
-                        Result.success(partnerAd)
+                        Result.success(partnerAd),
                     )
                 }
 
@@ -789,9 +789,25 @@ class HyprMXAdapter : PartnerAdapter {
 
     private open class ShowAdListener(
         private val request: PartnerAdLoadRequest,
+<<<<<<< HEAD
         private val listener: PartnerAdListener?,
     ) : HyprMXShowListener {
         override fun onAdStarted(placement: Placement) {
+=======
+        private val listener: PartnerAdListener,
+    ) : RewardedPlacementListener {
+        fun resumeOnce(result: Result<PartnerAd>) {
+            continuationRef.get()?.let {
+                if (it.isActive) {
+                    it.resume(result)
+                }
+            } ?: run {
+                PartnerLogController.log(LOAD_FAILED, "Unable to resume continuation. Continuation is null.")
+            }
+        }
+
+        override fun onAdStarted(placement: Placement?) {
+>>>>>>> f786d66 ([HB-6645] Helium rebranding)
             PartnerLogController.log(SHOW_SUCCEEDED)
             onShowSuccess()
             onShowSuccess = {}
