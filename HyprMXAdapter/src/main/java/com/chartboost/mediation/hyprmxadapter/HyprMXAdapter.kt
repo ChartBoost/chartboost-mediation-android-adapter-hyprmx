@@ -7,6 +7,7 @@
 
 package com.chartboost.mediation.hyprmxadapter
 
+import android.app.Activity
 import android.content.Context
 import android.util.Size
 import com.chartboost.chartboostmediationsdk.ChartboostMediationSdk
@@ -443,13 +444,13 @@ class HyprMXAdapter : PartnerAdapter {
     /**
      * Attempt to show the currently loaded HyprMX ad.
      *
-     * @param context The current [Context]
+     * @param activity The current [Activity]
      * @param partnerAd The [PartnerAd] object containing the HyprMX ad to be shown.
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
     override suspend fun show(
-        context: Context,
+        activity: Activity,
         partnerAd: PartnerAd,
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
