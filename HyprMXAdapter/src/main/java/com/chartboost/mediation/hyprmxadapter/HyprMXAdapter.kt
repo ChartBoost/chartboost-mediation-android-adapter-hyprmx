@@ -141,6 +141,11 @@ class HyprMXAdapter : PartnerAdapter {
         get() = "HyprMX"
 
     /**
+     * A map of Chartboost Mediation's listeners for the corresponding load identifier.
+     */
+    private val listeners = mutableMapOf<String, PartnerAdListener>()
+
+    /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
      *
      * @param context The current [Context].
@@ -286,7 +291,7 @@ class HyprMXAdapter : PartnerAdapter {
             HyprMX.setConsentStatus(consentStatus)
         }
     }
-    
+
     /**
      * Notify HyprMX of the CCPA compliance.
      *
@@ -369,8 +374,8 @@ class HyprMXAdapter : PartnerAdapter {
 
         return when (request.format.key) {
             AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(context, request, partnerAdListener)
-            AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request)
-            AdFormat.REWARDED.key -> loadRewardedAd(request)
+            AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request, partnerAdListener)
+            AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -391,6 +396,7 @@ class HyprMXAdapter : PartnerAdapter {
         partnerAd: PartnerAd,
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
+        val listener = listeners.remove(partnerAd.request.identifier)
 
         return when (partnerAd.request.format.key) {
             AdFormat.BANNER.key, "adaptive_banner" -> {
@@ -399,7 +405,7 @@ class HyprMXAdapter : PartnerAdapter {
                 Result.success(partnerAd)
             }
 
-            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd)
+            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd, listener)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
@@ -416,6 +422,7 @@ class HyprMXAdapter : PartnerAdapter {
      */
     override suspend fun invalidate(partnerAd: PartnerAd): Result<PartnerAd> {
         PartnerLogController.log(INVALIDATE_STARTED)
+        listeners.remove(partnerAd.request.identifier)
 
         return when (partnerAd.request.format.key) {
             AdFormat.BANNER.key, "adaptive_banner" -> destroyBannerAd(partnerAd)
@@ -533,7 +540,11 @@ class HyprMXAdapter : PartnerAdapter {
      */
     private suspend fun loadInterstitialAd(
         request: PartnerAdLoadRequest,
+        listener: PartnerAdListener,
     ): Result<PartnerAd> {
+        // Save the listener for later use.
+        listeners[request.identifier] = listener
+
         return suspendCancellableCoroutine { continuation ->
             HyprMX.getPlacement(request.partnerPlacement).apply {
                 loadAd(
@@ -557,7 +568,11 @@ class HyprMXAdapter : PartnerAdapter {
      */
     private suspend fun loadRewardedAd(
         request: PartnerAdLoadRequest,
+        listener: PartnerAdListener,
     ): Result<PartnerAd> {
+        // Save the listener for later use.
+        listeners[request.identifier] = listener
+
         return suspendCancellableCoroutine { continuation ->
             HyprMX.getPlacement(request.partnerPlacement).apply {
                 loadAd(
@@ -578,7 +593,10 @@ class HyprMXAdapter : PartnerAdapter {
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
-    private suspend fun showFullscreenAd(partnerAd: PartnerAd): Result<PartnerAd> {
+    private suspend fun showFullscreenAd(
+        partnerAd: PartnerAd,
+        listener: PartnerAdListener?,
+    ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
         return (partnerAd.ad as? Placement)?.let { placement ->
             suspendCancellableCoroutine { continuation ->
@@ -619,6 +637,7 @@ class HyprMXAdapter : PartnerAdapter {
                     placement.showAd(
                         ShowAdListener(
                             request = partnerAd.request,
+                            listener = listener,
                         )
                     )
                 }
@@ -714,6 +733,7 @@ class HyprMXAdapter : PartnerAdapter {
 
     private class ShowAdListener(
         private val request: PartnerAdLoadRequest,
+        private val listener: PartnerAdListener?,
     ) : HyprMXShowListener {
         override fun onAdStarted(placement: Placement) {
             PartnerLogController.log(SHOW_SUCCEEDED)
@@ -723,7 +743,7 @@ class HyprMXAdapter : PartnerAdapter {
 
         override fun onAdClosed(placement: Placement, finished: Boolean) {
             PartnerLogController.log(DID_DISMISS)
-            request.adInteractionListener.onDismissed(
+            listener?.onPartnerAdDismissed(
                 PartnerAd(
                     ad = placement,
                     details = emptyMap(),
@@ -742,7 +762,7 @@ class HyprMXAdapter : PartnerAdapter {
         }
 
         override fun onAdImpression(placement: Placement) {
-            request.adInteractionListener.onImpressionTracked(
+            listener?.onPartnerAdImpression(
                 PartnerAd(
                     ad = placement,
                     details = emptyMap(),
