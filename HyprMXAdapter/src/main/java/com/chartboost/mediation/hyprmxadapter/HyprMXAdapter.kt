@@ -562,7 +562,7 @@ class HyprMXAdapter : PartnerAdapter {
      * Attempt to load a HyprMX rewarded ad.
      *
      * @param request The [PartnerAdLoadRequest] containing relevant data for the current ad load call.
-     * @param partnerAdListener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
+     * @param listener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully loaded, Result.failure(Exception) otherwise.
      */
@@ -590,6 +590,7 @@ class HyprMXAdapter : PartnerAdapter {
      * Attempt to show a HyprMX fullscreen ad.
      *
      * @param partnerAd The [PartnerAd] object containing the HyprMX ad to be shown.
+     * @param listener A [PartnerAdListener] to notify Chartboost Mediation of ad events.
      *
      * @return Result.success(PartnerAd) if the ad was successfully shown, Result.failure(Exception) otherwise.
      */
