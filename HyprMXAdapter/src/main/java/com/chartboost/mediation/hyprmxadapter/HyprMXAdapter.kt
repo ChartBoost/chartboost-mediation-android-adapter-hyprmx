@@ -391,7 +391,7 @@ class HyprMXAdapter : PartnerAdapter {
             },
         )
 
-        // COPPA is always set to true on SDK initialization.
+        HyprMX.setAgeRestrictedUser(isSubjectToCoppa)
     }
 
     /**
