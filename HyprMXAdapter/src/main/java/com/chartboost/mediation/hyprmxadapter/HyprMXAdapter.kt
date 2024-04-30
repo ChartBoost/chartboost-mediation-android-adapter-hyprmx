@@ -78,11 +78,6 @@ class HyprMXAdapter : PartnerAdapter {
         private const val HYPRMX_USER_CONSENT_KEY = "hyprmx_user_consent"
 
         /**
-         * HyprMX gamer id key.
-         */
-        private const val HYPRMX_GAMER_ID_KEY = "hyprmx_gamer_id"
-
-        /**
          * Convert a given HyprMX error code into a [ChartboostMediationError].
          *
          * @param error The HyprMX error code as an [Int].
@@ -262,30 +257,6 @@ class HyprMXAdapter : PartnerAdapter {
                 }
         }
     }
-
-    /**
-     * HyprMX needs a unique generated identifier that needs to be static across sessions.
-     * This is passed on SDK initialization.
-     * For more information see: [userId](https://documentation.hyprmx.com/android-sdk/#userid)
-     *
-     * @param context a context that will be passed to the SharedPreferences to set the user ID.
-     */
-    private fun getGamerId(context: Context) =
-        context.getSharedPreferences(HYPRMX_PREFS_KEY, Context.MODE_PRIVATE)
-            .let { sharedPreferences ->
-                // return an already set gamer id, otherwise generate and store one.
-                sharedPreferences.getString(HYPRMX_GAMER_ID_KEY, null) ?: run {
-                    UUID.randomUUID().toString().also { gamerId ->
-                        val prefsWriteSucceeded = sharedPreferences.edit().putString(HYPRMX_GAMER_ID_KEY, gamerId).commit()
-                        PartnerLogController.log(
-                            CUSTOM,
-                            "Gamer ID ${
-                                if (prefsWriteSucceeded) "was" else "was not"
-                            } successfully stored.",
-                        )
-                    }
-                }
-            }
 
     /**
      * Store a HyprMX user's consent value and set it to HyprMX.
