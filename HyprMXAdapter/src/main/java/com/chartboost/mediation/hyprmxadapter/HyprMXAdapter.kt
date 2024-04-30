@@ -286,38 +286,7 @@ class HyprMXAdapter : PartnerAdapter {
             HyprMX.setConsentStatus(consentStatus)
         }
     }
-
-    /**
-     * Get a stored user's consent and return its HyprMX equivalent.
-     * This is passed on SDK initialization.
-     *
-     * @param context a context that will be passed to the SharedPreferences to set the user consent.
-     *
-     * @return An already stored user consent.
-     */
-    private fun getUserConsent(context: Context) =
-        getConsentStatus(
-            context.getSharedPreferences(
-                HYPRMX_PREFS_KEY,
-                Context.MODE_PRIVATE,
-            ).getInt(HYPRMX_USER_CONSENT_KEY, 0),
-        )
-
-    /**
-     * Translate an integer value to a HyprMX user consent enum.
-     *
-     * @param consentValue an [Int] to be translated to a HyprMX consent.
-     *
-     * @return a [ConsentStatus] based on the integer passed in.
-     */
-    private fun getConsentStatus(consentValue: Int) =
-        when (consentValue) {
-            0 -> ConsentStatus.CONSENT_STATUS_UNKNOWN
-            1 -> ConsentStatus.CONSENT_GIVEN
-            2 -> ConsentStatus.CONSENT_DECLINED
-            else -> ConsentStatus.CONSENT_STATUS_UNKNOWN
-        }
-
+    
     /**
      * Notify HyprMX of the CCPA compliance.
      *
