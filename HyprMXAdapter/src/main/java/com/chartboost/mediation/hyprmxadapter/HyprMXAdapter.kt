@@ -25,8 +25,6 @@ import com.hyprmx.android.sdk.core.HyprMXState
 import com.hyprmx.android.sdk.placement.Placement
 import com.hyprmx.android.sdk.placement.PlacementListener
 import com.hyprmx.android.sdk.placement.RewardedPlacementListener
-import com.hyprmx.android.sdk.utility.HyprMXLog
-import com.hyprmx.android.sdk.utility.HyprMXProperties
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
@@ -42,26 +40,6 @@ import kotlin.coroutines.suspendCoroutine
  */
 class HyprMXAdapter : PartnerAdapter {
     companion object {
-        /**
-         * Enable HyprMX debug logs.
-         * @param enabled True to enable debug logs, false otherwise.
-         */
-        fun enableDebugLogs(enabled: Boolean) {
-            HyprMXLog.enableDebugLogs(enabled)
-        }
-
-        /**
-         * Add a long debug log to HyprMX's logger for debugging.
-         * @param tag a constant tag
-         * @param message the log message
-         */
-        fun longDebugLog(
-            tag: String,
-            message: String,
-        ) {
-            HyprMXLog.longDebugLog(tag, message)
-        }
-
         /**
          * Key for parsing the HyperMX SDK distributor ID.
          */
@@ -113,37 +91,9 @@ class HyprMXAdapter : PartnerAdapter {
     }
 
     /**
-     * Get the HyprMX SDK version.
+     * The HyperMX adapter configuration.
      */
-    override val partnerSdkVersion: String
-        get() = HyprMXProperties.version
-
-    /**
-     * Get the HyprMX adapter version.
-     *
-     * You may version the adapter using any preferred convention, but it is recommended to apply the
-     * following format if the adapter will be published by Chartboost Mediation:
-     *
-     * Chartboost Mediation.Partner.Adapter
-     *
-     * "Chartboost Mediation" represents the Chartboost Mediation SDK’s major version that is compatible with this adapter. This must be 1 digit.
-     * "Partner" represents the partner SDK’s major.minor.patch.x (where x is optional) version that is compatible with this adapter. This can be 3-4 digits.
-     * "Adapter" represents this adapter’s version (starting with 0), which resets to 0 when the partner SDK’s version changes. This must be 1 digit.
-     */
-    override val adapterVersion: String
-        get() = BuildConfig.CHARTBOOST_MEDIATION_HYPRMX_ADAPTER_VERSION
-
-    /**
-     * Get the partner name for internal uses.
-     */
-    override val partnerId: String
-        get() = "hyprmx"
-
-    /**
-     * Get the partner name for external uses.
-     */
-    override val partnerDisplayName: String
-        get() = "HyprMX"
+    override var configuration: PartnerAdapterConfiguration = HyprMXAdapterConfiguration
 
     /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
@@ -196,7 +146,7 @@ class HyprMXAdapter : PartnerAdapter {
                     HyprMX.setMediationProvider(
                         mediator = "Chartboost Mediation",
                         mediatorSDKVersion = ChartboostMediationSdk.getVersion(),
-                        adapterVersion = adapterVersion,
+                        adapterVersion = configuration.adapterVersion,
                     )
                 } ?: run {
                 PartnerLogController.log(SETUP_FAILED, "Missing distributorID.")
