@@ -14,6 +14,9 @@ Adapters are compatible with any Chartboost Mediation SDK version within that ma
 
 ### 4.6.2.3.0
 - This version of the adapter has been certified with HyprMX SDK 6.2.3.
+- 
+### 4.6.2.0.5
+- Add function allow publishers to set a boolean consent value for the HyprMX SDK consent info.
 
 ### 4.6.2.0.4
 - Fix memory leaks that could occur when fullscreen ads are shown from an `Activity`.
