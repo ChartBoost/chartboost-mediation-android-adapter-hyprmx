@@ -229,6 +229,22 @@ class HyprMXAdapter : PartnerAdapter {
         }
     }
 
+
+    /**
+     * Set HyprMX user's consent value using a boolean.
+     * This is for publishers to manually set the consent status.
+     * This uses CONSENT_GIVEN for true and CONSENT_DECLINED for false.
+     *
+     * @param context a context that will be passed to the SharedPreferences to set the user consent.
+     * @param consented whether or not the user has consented.
+     */
+    fun setConsentStatus(context: Context, consented: Boolean) {
+        setUserConsentTask(
+            context,
+            if (consented) ConsentStatus.CONSENT_GIVEN else ConsentStatus.CONSENT_DECLINED,
+        )
+    }
+
     /**
      * Store a HyprMX user's consent value and set it to HyprMX.
      * This is passed on SDK initialization.
