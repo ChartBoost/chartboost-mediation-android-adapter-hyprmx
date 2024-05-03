@@ -270,7 +270,7 @@ class HyprMXAdapter : PartnerAdapter {
     /**
      * Set HyprMX user's consent value using a boolean.
      * This is for publishers to manually set the consent status.
-     * This uses CONSENT_GIVEN for true and CONSENT_DECLINED for false.
+     * This uses GDPR_CONSENT_GRANTED for true and GDPR_CONSENT_DENIED for false.
      *
      * @param context a context that will be passed to the SharedPreferences to set the user consent.
      * @param applies True if GDPR applies, false otherwise.
