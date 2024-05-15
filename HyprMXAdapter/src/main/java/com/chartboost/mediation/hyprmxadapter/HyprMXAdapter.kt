@@ -476,61 +476,60 @@ class HyprMXAdapter : PartnerAdapter {
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
         return suspendCoroutine { continuation ->
-            HyprMXBannerView(
+            val banner = HyprMXBannerView(
                 context = context,
                 placementName = request.partnerPlacement,
                 adSize = getHyprMXBannerAdSize(request.size),
-            ).apply {
+            )
+            banner.listener =
+                object : HyprMXBannerListener {
+                    override fun onAdClicked(view: HyprMXBannerView) {
+                        PartnerLogController.log(DID_CLICK)
+                        partnerAdListener.onPartnerAdClicked(
+                            PartnerAd(
+                                ad = view,
+                                details = emptyMap(),
+                                request = request,
+                            ),
+                        )
+                    }
+
+                    override fun onAdClosed(view: HyprMXBannerView) {}
+
+                    override fun onAdOpened(view: HyprMXBannerView) {}
+
+                    override fun onAdImpression(view: HyprMXBannerView) {}
+
+                    @Deprecated("This callback will be removed on a future SDK release.\nUse the app's lifecycle or the activity's lifecycle events as alternative.")
+                    override fun onAdLeftApplication(view: HyprMXBannerView) {
+                    }
+                }
+            banner.loadAd(
                 listener =
-                    object : HyprMXBannerListener {
-                        override fun onAdClicked(view: HyprMXBannerView) {
-                            PartnerLogController.log(DID_CLICK)
-                            partnerAdListener.onPartnerAdClicked(
-                                PartnerAd(
-                                    ad = view,
-                                    details = emptyMap(),
-                                    request = request,
+                object : HyprMXLoadAdListener {
+                    override fun onAdLoaded(isAdAvailable: Boolean) {
+                        if (isAdAvailable) {
+                            PartnerLogController.log(LOAD_SUCCEEDED)
+                            continuation.resume(
+                                Result.success(
+                                    PartnerAd(
+                                        ad = banner,
+                                        details = emptyMap(),
+                                        request = request,
+                                    ),
+                                ),
+                            )
+                        } else {
+                            PartnerLogController.log(LOAD_FAILED)
+                            continuation.resume(
+                                Result.failure(
+                                    ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL)
                                 ),
                             )
                         }
-
-                        override fun onAdClosed(view: HyprMXBannerView) {}
-
-                        override fun onAdOpened(view: HyprMXBannerView) {}
-
-                        override fun onAdImpression(view: HyprMXBannerView) {}
-
-                        @Deprecated("This callback will be removed on a future SDK release.\nUse the app's lifecycle or the activity's lifecycle events as alternative.")
-                        override fun onAdLeftApplication(view: HyprMXBannerView) {
-                        }
                     }
-                loadAd(
-                    listener =
-                    object : HyprMXLoadAdListener {
-                        override fun onAdLoaded(isAdAvailable: Boolean) {
-                            if (isAdAvailable) {
-                                PartnerLogController.log(LOAD_SUCCEEDED)
-                                continuation.resume(
-                                    Result.success(
-                                        PartnerAd(
-                                            ad = this,
-                                            details = emptyMap(),
-                                            request = request,
-                                        ),
-                                    ),
-                                )
-                            } else {
-                                PartnerLogController.log(LOAD_FAILED)
-                                continuation.resume(
-                                    Result.failure(
-                                        ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL)
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                )
-            }
+                }
+            )
         }
     }
 
