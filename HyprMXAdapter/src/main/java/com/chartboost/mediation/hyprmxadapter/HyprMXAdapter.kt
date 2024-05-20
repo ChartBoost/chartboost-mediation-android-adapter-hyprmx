@@ -69,14 +69,14 @@ class HyprMXAdapter : PartnerAdapter {
          */
         internal fun getChartboostMediationError(error: HyprMXErrors) =
             when (error) {
-                HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-                HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
+                HyprMXErrors.NO_FILL -> ChartboostMediationError.LoadError.NoFill
+                HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.InitializationError.Unknown
                 HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
                 HyprMXErrors.PLACEMENT_NAME_NOT_SET,
-                -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
-                HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
-                HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
-                else -> ChartboostMediationError.CM_PARTNER_ERROR
+                -> ChartboostMediationError.LoadError.InvalidPartnerPlacement
+                HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.ShowError.MediaBroken
+                HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.LoadError.InvalidBannerSize
+                else -> ChartboostMediationError.OtherError.PartnerError
             }
 
         /**
@@ -135,7 +135,7 @@ class HyprMXAdapter : PartnerAdapter {
                                     continuation.resume(
                                         Result.failure(
                                             ChartboostMediationAdException(
-                                                ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN,
+                                                ChartboostMediationError.InitializationError.Unknown,
                                             ),
                                         ),
                                     )
@@ -153,7 +153,7 @@ class HyprMXAdapter : PartnerAdapter {
                 continuation.resumeWith(
                     Result.failure(
                         ChartboostMediationAdException(
-                            ChartboostMediationError.CM_INITIALIZATION_FAILURE_INVALID_CREDENTIALS,
+                            ChartboostMediationError.InitializationError.InvalidCredentials,
                         ),
                     ),
                 )
@@ -215,7 +215,6 @@ class HyprMXAdapter : PartnerAdapter {
                 }
         }
     }
-
 
     /**
      * Set HyprMX user's consent value using a boolean.
@@ -408,7 +407,7 @@ class HyprMXAdapter : PartnerAdapter {
             AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
             }
         }
     }
@@ -437,7 +436,7 @@ class HyprMXAdapter : PartnerAdapter {
             AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
             }
         }
     }
@@ -665,7 +664,7 @@ class HyprMXAdapter : PartnerAdapter {
             )
             Result.failure(
                 ChartboostMediationAdException(
-                    ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE,
+                    ChartboostMediationError.ShowError.WrongResourceType,
                 ),
             )
         }
@@ -689,7 +688,7 @@ class HyprMXAdapter : PartnerAdapter {
                 INVALIDATE_FAILED,
                 "Ad is null or not an instance of HyprMXBannerView.",
             )
-            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.InvalidateError.AdNotFound))
         }
     }
 
@@ -779,7 +778,7 @@ class HyprMXAdapter : PartnerAdapter {
             resumeOnce(
                 Result.failure(
                     ChartboostMediationAdException(
-                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
+                        ChartboostMediationError.LoadError.NoFill,
                     ),
                 ),
             )
@@ -858,7 +857,7 @@ class HyprMXAdapter : PartnerAdapter {
             resumeOnce(
                 Result.failure(
                     ChartboostMediationAdException(
-                        ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
+                        ChartboostMediationError.LoadError.NoFill,
                     ),
                 ),
             )
