@@ -27,13 +27,8 @@ import com.hyprmx.android.sdk.placement.HyprMXLoadAdListener
 import com.hyprmx.android.sdk.placement.HyprMXRewardedShowListener
 import com.hyprmx.android.sdk.placement.HyprMXShowListener
 import com.hyprmx.android.sdk.placement.Placement
-<<<<<<< HEAD
 import com.hyprmx.android.sdk.utility.HyprMXLog
 import com.hyprmx.android.sdk.utility.HyprMXProperties
-=======
-import com.hyprmx.android.sdk.placement.PlacementListener
-import com.hyprmx.android.sdk.placement.RewardedPlacementListener
->>>>>>> 02f995b (AdapterConfiguration)
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
@@ -73,15 +68,22 @@ class HyprMXAdapter : PartnerAdapter {
          */
         internal fun getChartboostMediationError(error: HyprMXErrors) =
             when (error) {
-                HyprMXErrors.NO_FILL -> ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL
-                HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN
+                HyprMXErrors.NO_FILL -> ChartboostMediationError.LoadError.NoFill
+                HyprMXErrors.SDK_NOT_INITIALIZED -> ChartboostMediationError.InitializationError.Unknown
                 HyprMXErrors.INVALID_BANNER_PLACEMENT_NAME, HyprMXErrors.PLACEMENT_DOES_NOT_EXIST,
                 HyprMXErrors.PLACEMENT_NAME_NOT_SET,
+<<<<<<< HEAD
                 -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_PARTNER_PLACEMENT
 
                 HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.CM_SHOW_FAILURE_MEDIA_BROKEN
                 HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.CM_LOAD_FAILURE_INVALID_BANNER_SIZE
                 else -> ChartboostMediationError.CM_PARTNER_ERROR
+=======
+                -> ChartboostMediationError.LoadError.InvalidPartnerPlacement
+                HyprMXErrors.DISPLAY_ERROR, HyprMXErrors.AD_FAILED_TO_RENDER -> ChartboostMediationError.ShowError.MediaBroken
+                HyprMXErrors.AD_SIZE_NOT_SET -> ChartboostMediationError.LoadError.InvalidBannerSize
+                else -> ChartboostMediationError.OtherError.PartnerError
+>>>>>>> 686257c (New ChartboostMediation error design (#18))
             }
 
         /**
@@ -147,7 +149,7 @@ class HyprMXAdapter : PartnerAdapter {
                                     continuation.resume(
                                         Result.failure(
                                             ChartboostMediationAdException(
-                                                ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN,
+                                                ChartboostMediationError.InitializationError.Unknown,
                                             ),
                                         ),
                                     )
@@ -166,7 +168,7 @@ class HyprMXAdapter : PartnerAdapter {
                 continuation.resumeWith(
                     Result.failure(
                         ChartboostMediationAdException(
-                            ChartboostMediationError.CM_INITIALIZATION_FAILURE_INVALID_CREDENTIALS,
+                            ChartboostMediationError.InitializationError.InvalidCredentials,
                         ),
                     ),
                 )
@@ -228,7 +230,6 @@ class HyprMXAdapter : PartnerAdapter {
                 }
         }
     }
-
 
     /**
      * Set HyprMX user's consent value using a boolean.
@@ -387,7 +388,7 @@ class HyprMXAdapter : PartnerAdapter {
             AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
             }
         }
     }
@@ -421,7 +422,7 @@ class HyprMXAdapter : PartnerAdapter {
 
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_SHOW_FAILURE_UNSUPPORTED_AD_FORMAT))
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
             }
         }
     }
@@ -678,7 +679,7 @@ class HyprMXAdapter : PartnerAdapter {
             )
             Result.failure(
                 ChartboostMediationAdException(
-                    ChartboostMediationError.CM_SHOW_FAILURE_WRONG_RESOURCE_TYPE,
+                    ChartboostMediationError.ShowError.WrongResourceType,
                 ),
             )
         }
@@ -703,7 +704,7 @@ class HyprMXAdapter : PartnerAdapter {
                 INVALIDATE_FAILED,
                 "Ad is null or not an instance of HyprMXBannerView.",
             )
-            Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_INVALIDATE_FAILURE_AD_NOT_FOUND))
+            Result.failure(ChartboostMediationAdException(ChartboostMediationError.InvalidateError.AdNotFound))
         }
     }
 
