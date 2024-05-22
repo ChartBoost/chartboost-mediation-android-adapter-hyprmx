@@ -13,7 +13,32 @@ import android.util.Size
 import com.chartboost.chartboostmediationsdk.ChartboostMediationSdk
 import com.chartboost.chartboostmediationsdk.domain.*
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
-import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.*
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.CUSTOM
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_CLICK
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_DISMISS
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.DID_REWARD
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_CONSENT_DENIED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_CONSENT_GRANTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.GDPR_CONSENT_UNKNOWN
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.INVALIDATE_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.LOAD_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.LOAD_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.LOAD_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SETUP_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SETUP_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SETUP_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_FAILED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_STARTED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.SHOW_SUCCEEDED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USER_IS_NOT_UNDERAGE
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USER_IS_UNDERAGE
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USP_CONSENT_DENIED
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.USP_CONSENT_GRANTED
+import com.chartboost.core.consent.*
 import com.hyprmx.android.sdk.banner.HyprMXBannerListener
 import com.hyprmx.android.sdk.banner.HyprMXBannerSize
 import com.hyprmx.android.sdk.banner.HyprMXBannerView
@@ -106,10 +131,11 @@ class HyprMXAdapter : PartnerAdapter {
     override suspend fun setUp(
         context: Context,
         partnerConfiguration: PartnerConfiguration,
-    ): Result<Unit> {
+    ): Result<Map<String, Any>> {
         PartnerLogController.log(SETUP_STARTED)
 
         return suspendCoroutine { continuation ->
+            setConsents(context, partnerConfiguration.consents, partnerConfiguration.consents.keys)
             Json.decodeFromJsonElement<String>(
                 (partnerConfiguration.credentials as JsonObject).getValue(DISTRIBUTOR_ID_KEY),
             ).trim()
@@ -123,11 +149,8 @@ class HyprMXAdapter : PartnerAdapter {
                         listener =
                             object : HyprMXIf.HyprMXInitializationListener {
                                 override fun initializationComplete() {
-                                    continuation.resume(
-                                        Result.success(
-                                            PartnerLogController.log(SETUP_SUCCEEDED),
-                                        ),
-                                    )
+                                    PartnerLogController.log(SETUP_SUCCEEDED)
+                                    continuation.resume(Result.success(emptyMap()))
                                 }
 
                                 override fun initializationFailed() {
@@ -159,82 +182,6 @@ class HyprMXAdapter : PartnerAdapter {
                 )
             }
         }
-    }
-
-    /**
-     * Notify the HyprMX SDK of the GDPR applicability and consent status.
-     *
-     * @param context The current [Context].
-     * @param applies True if GDPR applies, false otherwise.
-     * @param gdprConsentStatus The user's GDPR consent status.
-     */
-    override fun setGdpr(
-        context: Context,
-        applies: Boolean?,
-        gdprConsentStatus: GdprConsentStatus,
-    ) {
-        PartnerLogController.log(
-            when (applies) {
-                true -> GDPR_APPLICABLE
-                false -> GDPR_NOT_APPLICABLE
-                else -> GDPR_UNKNOWN
-            },
-        )
-
-        PartnerLogController.log(
-            when (gdprConsentStatus) {
-                GdprConsentStatus.GDPR_CONSENT_UNKNOWN -> GDPR_CONSENT_UNKNOWN
-                GdprConsentStatus.GDPR_CONSENT_GRANTED -> GDPR_CONSENT_GRANTED
-                GdprConsentStatus.GDPR_CONSENT_DENIED -> GDPR_CONSENT_DENIED
-            },
-        )
-
-        when (gdprConsentStatus) {
-            GdprConsentStatus.GDPR_CONSENT_GRANTED ->
-                checkHyprMxInitStateAndRun {
-                    setUserConsentTask(
-                        context,
-                        ConsentStatus.CONSENT_GIVEN,
-                    )
-                }
-
-            GdprConsentStatus.GDPR_CONSENT_DENIED ->
-                checkHyprMxInitStateAndRun {
-                    setUserConsentTask(
-                        context,
-                        ConsentStatus.CONSENT_DECLINED,
-                    )
-                }
-
-            GdprConsentStatus.GDPR_CONSENT_UNKNOWN ->
-                checkHyprMxInitStateAndRun {
-                    setUserConsentTask(
-                        context,
-                        ConsentStatus.CONSENT_STATUS_UNKNOWN,
-                    )
-                }
-        }
-    }
-
-    /**
-     * Set HyprMX user's consent value using a boolean.
-     * This is for publishers to manually set the consent status.
-     * This uses GDPR_CONSENT_GRANTED for true and GDPR_CONSENT_DENIED for false.
-     *
-     * @param context a context that will be passed to the SharedPreferences to set the user consent.
-     * @param applies True if GDPR applies, false otherwise.
-     * @param consented whether or not the user has consented.
-     */
-    fun setGdpr(
-        context: Context,
-        applies: Boolean?,
-        consented: Boolean,
-    ) {
-        setGdpr(
-            context,
-            applies,
-            if (consented) GdprConsentStatus.GDPR_CONSENT_GRANTED else GdprConsentStatus.GDPR_CONSENT_DENIED,
-        )
     }
 
     /**
@@ -322,46 +269,20 @@ class HyprMXAdapter : PartnerAdapter {
         }
 
     /**
-     * Notify HyprMX of the CCPA compliance.
-     *
-     * @param context The current [Context].
-     * @param hasGrantedCcpaConsent True if the user has granted CCPA consent, false otherwise.
-     * @param privacyString The CCPA privacy String.
-     */
-    override fun setCcpaConsent(
-        context: Context,
-        hasGrantedCcpaConsent: Boolean,
-        privacyString: String,
-    ) {
-        PartnerLogController.log(
-            if (hasGrantedCcpaConsent) {
-                CCPA_CONSENT_GRANTED
-            } else {
-                CCPA_CONSENT_DENIED
-            },
-        )
-
-        when (hasGrantedCcpaConsent) {
-            true -> checkHyprMxInitStateAndRun { setUserConsentTask(context, ConsentStatus.CONSENT_GIVEN) }
-            false -> checkHyprMxInitStateAndRun { setUserConsentTask(context, ConsentStatus.CONSENT_DECLINED) }
-        }
-    }
-
-    /**
      * Notify HyprMX of the COPPA subjectivity.
      *
      * @param context The current [Context].
-     * @param isSubjectToCoppa True if the user is subject to COPPA, false otherwise.
+     * @param isUserUnderage True if the user is subject to COPPA, false otherwise.
      */
-    override fun setUserSubjectToCoppa(
+    override fun setIsUserUnderage(
         context: Context,
-        isSubjectToCoppa: Boolean,
+        isUserUnderage: Boolean,
     ) {
         PartnerLogController.log(
-            if (isSubjectToCoppa) {
-                COPPA_SUBJECT
+            if (isUserUnderage) {
+                USER_IS_UNDERAGE
             } else {
-                COPPA_NOT_SUBJECT
+                USER_IS_NOT_UNDERAGE
             },
         )
 
@@ -372,17 +293,17 @@ class HyprMXAdapter : PartnerAdapter {
      * Get a bid token if network bidding is supported.
      *
      * @param context The current [Context].
-     * @param request The [PreBidRequest] instance containing relevant data for the current bid request.
+     * @param request The [PartnerAdPreBidRequest] instance containing relevant data for the current bid request.
      *
      * @return A Map of biddable token Strings.
      */
     override suspend fun fetchBidderInformation(
         context: Context,
-        request: PreBidRequest,
-    ): Map<String, String> {
+        request: PartnerAdPreBidRequest,
+    ): Result<Map<String, String>> {
         PartnerLogController.log(BIDDER_INFO_FETCH_STARTED)
         PartnerLogController.log(BIDDER_INFO_FETCH_SUCCEEDED)
-        return emptyMap()
+        return Result.success(emptyMap())
     }
 
     /**
@@ -401,10 +322,10 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
 
-        return when (request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(context, request, partnerAdListener)
-            AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request, partnerAdListener)
-            AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
+        return when (request.format) {
+            PartnerAdFormats.BANNER -> loadBannerAd(context, request, partnerAdListener)
+            PartnerAdFormats.INTERSTITIAL -> loadInterstitialAd(request, partnerAdListener)
+            PartnerAdFormats.REWARDED -> loadRewardedAd(request, partnerAdListener)
             else -> {
                 PartnerLogController.log(LOAD_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.UnsupportedAdFormat))
@@ -426,14 +347,14 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
 
-        return when (partnerAd.request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> {
+        return when (partnerAd.request.format) {
+            PartnerAdFormats.BANNER -> {
                 // Banner ads do not have a separate "show" mechanism.
                 PartnerLogController.log(SHOW_SUCCEEDED)
                 Result.success(partnerAd)
             }
 
-            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> showFullscreenAd(partnerAd)
+            PartnerAdFormats.INTERSTITIAL, PartnerAdFormats.REWARDED -> showFullscreenAd(partnerAd)
             else -> {
                 PartnerLogController.log(SHOW_FAILED)
                 Result.failure(ChartboostMediationAdException(ChartboostMediationError.ShowError.UnsupportedAdFormat))
@@ -451,9 +372,9 @@ class HyprMXAdapter : PartnerAdapter {
     override suspend fun invalidate(partnerAd: PartnerAd): Result<PartnerAd> {
         PartnerLogController.log(INVALIDATE_STARTED)
 
-        return when (partnerAd.request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> destroyBannerAd(partnerAd)
-            AdFormat.INTERSTITIAL.key, AdFormat.REWARDED.key -> {
+        return when (partnerAd.request.format) {
+            PartnerAdFormats.BANNER -> destroyBannerAd(partnerAd)
+            PartnerAdFormats.INTERSTITIAL, PartnerAdFormats.REWARDED -> {
                 // HyprMX does not have destroy methods for their fullscreen ads.
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
@@ -462,6 +383,69 @@ class HyprMXAdapter : PartnerAdapter {
             else -> {
                 PartnerLogController.log(INVALIDATE_SUCCEEDED)
                 Result.success(partnerAd)
+            }
+        }
+    }
+
+    override fun setConsents(
+        context: Context,
+        consents: Map<ConsentKey, ConsentValue>,
+        modifiedKeys: Set<ConsentKey>
+    ) {
+        consents[ConsentKeys.GDPR_CONSENT_GIVEN]?.let {
+            if (it == ConsentValues.DOES_NOT_APPLY) {
+                return@let
+            }
+            PartnerLogController.log(
+                when (it) {
+                    ConsentValues.GRANTED -> GDPR_CONSENT_GRANTED
+                    ConsentValues.DENIED -> GDPR_CONSENT_DENIED
+                    else -> GDPR_CONSENT_UNKNOWN
+                },
+            )
+
+            when (it) {
+                ConsentValues.GRANTED ->
+                    checkHyprMxInitStateAndRun {
+                        setUserConsentTask(
+                            context,
+                            ConsentStatus.CONSENT_GIVEN,
+                        )
+                    }
+
+                ConsentValues.DENIED ->
+                    checkHyprMxInitStateAndRun {
+                        setUserConsentTask(
+                            context,
+                            ConsentStatus.CONSENT_DECLINED,
+                        )
+                    }
+
+                else ->
+                    checkHyprMxInitStateAndRun {
+                        setUserConsentTask(
+                            context,
+                            ConsentStatus.CONSENT_STATUS_UNKNOWN,
+                        )
+                    }
+            }
+            // If we set GDPR consent, we should not check USP
+            return@setConsents
+        }
+
+        consents[ConsentKeys.USP]?.let {
+            val hasGrantedUspConsent = ConsentManagementPlatform.getUspConsentFromUspString(it)
+            PartnerLogController.log(
+                if (hasGrantedUspConsent) {
+                    USP_CONSENT_GRANTED
+                } else {
+                    USP_CONSENT_DENIED
+                },
+            )
+
+            when (hasGrantedUspConsent) {
+                true -> checkHyprMxInitStateAndRun { setUserConsentTask(context, ConsentStatus.CONSENT_GIVEN) }
+                false -> checkHyprMxInitStateAndRun { setUserConsentTask(context, ConsentStatus.CONSENT_DECLINED) }
             }
         }
     }
@@ -484,7 +468,7 @@ class HyprMXAdapter : PartnerAdapter {
             HyprMXBannerView(
                 context = context,
                 placementName = request.partnerPlacement,
-                adSize = getHyprMXBannerAdSize(request.size),
+                adSize = getHyprMXBannerAdSize(request.bannerSize?.size),
             ).apply {
                 listener =
                     object : HyprMXBannerListener {
