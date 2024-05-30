@@ -5,15 +5,15 @@ The Chartboost Mediation HyprMX adapter mediates HyprMX via the Chartboost Media
 ## Minimum Requirements
 
 | Plugin                   | Version |
-| ------------------------ | ------- |
-| Chartboost Mediation SDK | 4.0.0+  |
+| ------------------------ |---------|
+| Chartboost Mediation SDK | 5.0.0+  |
 | Android API              | 21+     |
 
 ## Integration
 
 In your `build.gradle`, add the following entry:
 ```
-    implementation "com.chartboost:chartboost-mediation-adapter-hyprmx:4.6.2.0.5"
+    implementation "com.chartboost:chartboost-mediation-adapter-hyprmx:5.6.2.0.0"
 ```
 
 ## Contributions
