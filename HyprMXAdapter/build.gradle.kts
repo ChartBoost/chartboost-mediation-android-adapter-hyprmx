@@ -18,12 +18,19 @@ plugins {
 repositories {
     google()
     mavenCentral()
+    maven("https://cboost.jfrog.io/artifactory/private-chartboost-core/") {
+        credentials {
+            username = System.getenv("JFROG_USER")
+            password = System.getenv("JFROG_PASS")
+        }
+    }
     maven("https://cboost.jfrog.io/artifactory/private-chartboost-mediation/") {
         credentials {
             username = System.getenv("JFROG_USER")
             password = System.getenv("JFROG_PASS")
         }
     }
+    maven("https://cboost.jfrog.io/artifactory/chartboost-core/")
     maven("https://cboost.jfrog.io/artifactory/chartboost-mediation/")
 }
 
@@ -35,7 +42,7 @@ android {
         minSdk = 21
         targetSdk = 33
         // If you touch the following line, don't forget to update scripts/get_rc_version.zsh
-        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "4.6.4.1.1"
+        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "5.6.4.1.0"
         buildConfigField("String", "CHARTBOOST_MEDIATION_HYPRMX_ADAPTER_VERSION", "\"${android.defaultConfig.versionName}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -45,6 +52,7 @@ android {
     productFlavors {
         create("local")
         create("remote")
+        create("candidate")
     }
 
     buildTypes {
@@ -61,6 +69,15 @@ android {
         viewBinding = true
         buildConfig = true
     }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
@@ -68,7 +85,8 @@ dependencies {
 
     // For external usage, please use the following production dependency.
     // You may choose a different release version.
-    "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:4.0.0")
+    "remoteImplementation"("com.chartboost:chartboost-mediation-sdk:5.0.0")
+    "candidateImplementation"("com.chartboost:chartboost-mediation-sdk:5.0.0")
 
     // For external usage, please use the following production dependency.
     // You may choose a different release version.
