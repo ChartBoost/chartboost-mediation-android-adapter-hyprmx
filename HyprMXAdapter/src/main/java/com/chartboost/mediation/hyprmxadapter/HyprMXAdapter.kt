@@ -148,6 +148,12 @@ class HyprMXAdapter : PartnerAdapter {
     private val listeners = mutableMapOf<String, PartnerAdListener>()
 
     /**
+     * A list of fullscreen partner placements that have been loaded. Ad queuing is not supported
+     * with HyprMX due to internal implementation constraints.
+     */
+    private val loadedPartnerPlacements = mutableSetOf<String>()
+
+    /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
      *
      * @param context The current [Context].
@@ -385,18 +391,23 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
 
-        return when (request.format.key) {
-            AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(
-                context,
-                request,
-                partnerAdListener
-            )
+        if (loadedPartnerPlacements.contains(request.partnerPlacement)) {
+            PartnerLogController.log(LOAD_FAILED)
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN))
+        } else {
+            return when (request.format.key) {
+                AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(
+                    context,
+                    request,
+                    partnerAdListener
+                )
 
-            AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request, partnerAdListener)
-            AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
-            else -> {
-                PartnerLogController.log(LOAD_FAILED)
-                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request, partnerAdListener)
+                AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
+                else -> {
+                    PartnerLogController.log(LOAD_FAILED)
+                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
+                }
             }
         }
     }
@@ -565,6 +576,7 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         // Save the listener for later use.
         listeners[request.identifier] = listener
+        loadedPartnerPlacements.add(request.partnerPlacement)
 
         return suspendCancellableCoroutine { continuation ->
             HyprMX.getPlacement(request.partnerPlacement).apply {
@@ -593,6 +605,7 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         // Save the listener for later use.
         listeners[request.identifier] = listener
+        loadedPartnerPlacements.add(request.partnerPlacement)
 
         return suspendCancellableCoroutine { continuation ->
             HyprMX.getPlacement(request.partnerPlacement).apply {
@@ -620,6 +633,8 @@ class HyprMXAdapter : PartnerAdapter {
         listener: PartnerAdListener?,
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
+        loadedPartnerPlacements.remove(partnerAd.request.partnerPlacement)
+
         return (partnerAd.ad as? Placement)?.let { placement ->
             suspendCancellableCoroutine { continuation ->
                 val weakContinuationRef = WeakReference(continuation)
@@ -698,6 +713,7 @@ class HyprMXAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully destroyed, Result.failure(Exception) otherwise.
      */
     private fun destroyBannerAd(partnerAd: PartnerAd): Result<PartnerAd> {
+        loadedPartnerPlacements.remove(partnerAd.request.partnerPlacement)
         return (partnerAd.ad as? HyprMXBannerView)?.let { bannerAd ->
             bannerAd.destroy()
 
