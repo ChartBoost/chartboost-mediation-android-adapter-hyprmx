@@ -4,6 +4,7 @@ Note the first digit of every adapter version corresponds to the major version o
 Adapters are compatible with any Chartboost Mediation SDK version within that major version.
 
 ### 5.6.4.1.0
+- This version of the adapter has been certified with HyprMX SDK 6.4.1.
 - This version of the adapter supports Chartboost Mediation SDK version 5.+.
 
 ### 4.6.4.1.1
