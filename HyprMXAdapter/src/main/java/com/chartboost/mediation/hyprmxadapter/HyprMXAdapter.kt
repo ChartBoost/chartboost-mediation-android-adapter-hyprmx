@@ -394,20 +394,20 @@ class HyprMXAdapter : PartnerAdapter {
         if (loadedPartnerPlacements.contains(request.partnerPlacement)) {
             PartnerLogController.log(LOAD_FAILED)
             return Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNKNOWN))
-        } else {
-            return when (request.format.key) {
-                AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(
-                    context,
-                    request,
-                    partnerAdListener
-                )
+        }
 
-                AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request, partnerAdListener)
-                AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
-                else -> {
-                    PartnerLogController.log(LOAD_FAILED)
-                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
-                }
+        return when (request.format.key) {
+            AdFormat.BANNER.key, "adaptive_banner" -> loadBannerAd(
+                context,
+                request,
+                partnerAdListener
+            )
+
+            AdFormat.INTERSTITIAL.key -> loadInterstitialAd(request, partnerAdListener)
+            AdFormat.REWARDED.key -> loadRewardedAd(request, partnerAdListener)
+            else -> {
+                PartnerLogController.log(LOAD_FAILED)
+                Result.failure(ChartboostMediationAdException(ChartboostMediationError.CM_LOAD_FAILURE_UNSUPPORTED_AD_FORMAT))
             }
         }
     }
