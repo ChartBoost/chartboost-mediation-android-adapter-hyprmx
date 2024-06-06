@@ -107,6 +107,12 @@ class HyprMXAdapter : PartnerAdapter {
          * A lambda to call for failed HyprMX ad shows.
          */
         internal var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
+
+        /**
+         * A list of fullscreen partner placements that have been loaded. Ad queuing is not supported
+         * with HyprMX due to internal implementation constraints.
+         */
+        private val loadedPartnerPlacements = mutableSetOf<String>()
     }
 
     /**
@@ -146,12 +152,6 @@ class HyprMXAdapter : PartnerAdapter {
      * A map of Chartboost Mediation's listeners for the corresponding load identifier.
      */
     private val listeners = mutableMapOf<String, PartnerAdListener>()
-
-    /**
-     * A list of fullscreen partner placements that have been loaded. Ad queuing is not supported
-     * with HyprMX due to internal implementation constraints.
-     */
-    private val loadedPartnerPlacements = mutableSetOf<String>()
 
     /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
@@ -633,7 +633,6 @@ class HyprMXAdapter : PartnerAdapter {
         listener: PartnerAdListener?,
     ): Result<PartnerAd> {
         PartnerLogController.log(SHOW_STARTED)
-        loadedPartnerPlacements.remove(partnerAd.request.partnerPlacement)
 
         return (partnerAd.ad as? Placement)?.let { placement ->
             suspendCancellableCoroutine { continuation ->
@@ -800,6 +799,7 @@ class HyprMXAdapter : PartnerAdapter {
 
         override fun onAdClosed(placement: Placement, finished: Boolean) {
             PartnerLogController.log(DID_DISMISS)
+            loadedPartnerPlacements.remove(request.partnerPlacement)
             listener?.onPartnerAdDismissed(
                 PartnerAd(
                     ad = placement,
