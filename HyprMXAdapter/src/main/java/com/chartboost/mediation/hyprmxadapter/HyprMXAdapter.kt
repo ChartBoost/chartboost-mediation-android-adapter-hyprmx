@@ -44,6 +44,7 @@ import com.hyprmx.android.sdk.consent.ConsentStatus
 import com.hyprmx.android.sdk.core.HyprMX
 import com.hyprmx.android.sdk.core.HyprMXErrors
 import com.hyprmx.android.sdk.core.HyprMXState
+import com.hyprmx.android.sdk.placement.HyprMXLoadAdListener
 import com.hyprmx.android.sdk.placement.HyprMXRewardedShowListener
 import com.hyprmx.android.sdk.placement.HyprMXShowListener
 import com.hyprmx.android.sdk.placement.Placement
@@ -108,6 +109,12 @@ class HyprMXAdapter : PartnerAdapter {
          * A lambda to call for failed HyprMX ad shows.
          */
         internal var onShowError: (hyprMXErrors: HyprMXErrors) -> Unit = { _: HyprMXErrors -> }
+
+        /**
+         * A list of fullscreen partner placements that have been loaded. Ad queuing is not supported
+         * with HyprMX due to internal implementation constraints.
+         */
+        internal val loadedPartnerPlacements = mutableSetOf<String>()
     }
 
     /**
@@ -279,6 +286,11 @@ class HyprMXAdapter : PartnerAdapter {
         partnerAdListener: PartnerAdListener,
     ): Result<PartnerAd> {
         PartnerLogController.log(LOAD_STARTED)
+
+        if (loadedPartnerPlacements.contains(request.partnerPlacement)) {
+            PartnerLogController.log(LOAD_FAILED)
+            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.LoadError.Unknown))
+        }
 
         return when (request.format) {
             PartnerAdFormats.BANNER -> loadBannerAd(context, request, partnerAdListener)
@@ -532,6 +544,7 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         // Save the listener for later use.
         listeners[request.identifier] = partnerAdListener
+        loadedPartnerPlacements.add(request.partnerPlacement)
 
         val placement = HyprMX.getPlacement(request.partnerPlacement)
         val isAdAvailable = placement.loadAd()
@@ -565,6 +578,7 @@ class HyprMXAdapter : PartnerAdapter {
     ): Result<PartnerAd> {
         // Save the listener for later use.
         listeners[request.identifier] = partnerAdListener
+        loadedPartnerPlacements.add(request.partnerPlacement)
 
         val placement = HyprMX.getPlacement(request.partnerPlacement)
         val isAdAvailable = placement.loadAd()
@@ -666,6 +680,7 @@ class HyprMXAdapter : PartnerAdapter {
      * @return Result.success(PartnerAd) if the ad was successfully destroyed, Result.failure(Exception) otherwise.
      */
     private fun destroyBannerAd(partnerAd: PartnerAd): Result<PartnerAd> {
+        loadedPartnerPlacements.remove(partnerAd.request.partnerPlacement)
         return (partnerAd.ad as? HyprMXBannerView)?.let { bannerAd ->
             bannerAd.destroy()
 
@@ -713,6 +728,7 @@ private class FullscreenAdShowListener(
         finished: Boolean,
     ) {
         PartnerLogController.log(DID_DISMISS)
+        HyprMXAdapter.loadedPartnerPlacements.remove(request.partnerPlacement)
         listener?.onPartnerAdDismissed(
             PartnerAd(
                 ad = placement,
