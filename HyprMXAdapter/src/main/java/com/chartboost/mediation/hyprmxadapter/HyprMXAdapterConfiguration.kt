@@ -1,8 +1,16 @@
 package com.chartboost.mediation.hyprmxadapter
 
+import android.content.Context
 import com.chartboost.chartboostmediationsdk.domain.PartnerAdapterConfiguration
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
+import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.CUSTOM
+import com.hyprmx.android.sdk.consent.ConsentStatus
+import com.hyprmx.android.sdk.core.HyprMX
 import com.hyprmx.android.sdk.utility.HyprMXLog
 import com.hyprmx.android.sdk.utility.HyprMXProperties
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers.Main
+import kotlinx.coroutines.launch
 
 object HyprMXAdapterConfiguration : PartnerAdapterConfiguration {
     /**
@@ -35,11 +43,33 @@ object HyprMXAdapterConfiguration : PartnerAdapterConfiguration {
     override val adapterVersion = BuildConfig.CHARTBOOST_MEDIATION_HYPRMX_ADAPTER_VERSION
 
     /**
-     * Enable HyprMX debug logs.
-     *
-     * @param enabled True to enable debug logs, false otherwise.
+     * Whether or not HyprMX debug logging is enabled.
      */
-    fun enableDebugLogs(enabled: Boolean) {
-        HyprMXLog.enableDebugLogs(enabled)
+    var isDebugLoggingEnabled = false
+        set(value) {
+            field = value
+            HyprMXLog.enableDebugLogs(value)
+            PartnerLogController.log(
+                CUSTOM,
+                "HyprMX debug logging is ${if (value) "enabled" else "disabled"}.",
+            )
+        }
+
+    /**
+     * Use to manually set the consent status on the HyprMX SDK.
+     * This is generally unnecessary as the Mediation SDK will set the consent status automatically based on the latest consent info.
+     *
+     * @param context The Android Context.
+     * @param status The HyprMX ConsentStatus.
+     */
+    fun setConsentStatusOverride(context: Context, status: ConsentStatus) {
+        isConsentStatusOverridden = true
+        HyprMXAdapter.setUserConsentTask(context, status)
+        PartnerLogController.log(CUSTOM, "HyprMX consent status overridden to $status")
     }
+
+    /**
+     * Whether consent status has been manually overridden by the publisher.
+     */
+    internal var isConsentStatusOverridden = false
 }
