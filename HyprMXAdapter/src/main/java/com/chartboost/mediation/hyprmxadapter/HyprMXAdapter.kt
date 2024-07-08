@@ -43,6 +43,7 @@ import com.hyprmx.android.sdk.banner.HyprMXBannerView
 import com.hyprmx.android.sdk.consent.ConsentStatus
 import com.hyprmx.android.sdk.core.HyprMX
 import com.hyprmx.android.sdk.core.HyprMXErrors
+import com.hyprmx.android.sdk.core.HyprMXIf
 import com.hyprmx.android.sdk.core.HyprMXState
 import com.hyprmx.android.sdk.core.InitResult
 import com.hyprmx.android.sdk.placement.HyprMXLoadAdListener
@@ -58,6 +59,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import java.lang.ref.WeakReference
 import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 /**
  * The Chartboost Mediation HyperMX SDK adapter.
@@ -121,7 +123,7 @@ class HyprMXAdapter : PartnerAdapter {
          *
          * @param function the function that will be run after the initialization state check was successful.
          */
-        internal fun checkHyprMxInitStateAndRun(function: () -> Unit) {
+        private fun checkHyprMxInitStateAndRun(function: () -> Unit) {
             if (HyprMX.getInitializationState() != HyprMXState.INITIALIZATION_COMPLETE) {
                 PartnerLogController.log(
                     CUSTOM,
@@ -172,11 +174,6 @@ class HyprMXAdapter : PartnerAdapter {
     private val listeners = mutableMapOf<String, PartnerAdListener>()
 
     /**
-     * A map of Chartboost Mediation's listeners for the corresponding load identifier.
-     */
-    private val listeners = mutableMapOf<String, PartnerAdListener>()
-
-    /**
      * Initialize the HyprMX SDK so that it is ready to request ads.
      *
      * @param context The current [Context].
@@ -191,11 +188,12 @@ class HyprMXAdapter : PartnerAdapter {
         PartnerLogController.log(SETUP_STARTED)
 
         setConsents(context, partnerConfiguration.consents, partnerConfiguration.consents.keys)
-        Json.decodeFromJsonElement<String>(
-            (partnerConfiguration.credentials as JsonObject).getValue(DISTRIBUTOR_ID_KEY),
-        ).trim()
-            .takeIf { it.isNotEmpty() }?.let { distributorId ->
-                val result =
+
+        return suspendCoroutine { continuation ->
+            Json.decodeFromJsonElement<String>(
+                (partnerConfiguration.credentials as JsonObject).getValue(DISTRIBUTOR_ID_KEY),
+            ).trim()
+                .takeIf { it.isNotEmpty() }?.let { distributorId ->
                     HyprMX.initialize(
                         context = context,
                         distributorId = distributorId,
@@ -203,43 +201,34 @@ class HyprMXAdapter : PartnerAdapter {
                         object : HyprMXIf.HyprMXInitializationListener {
                             override fun onInitialized(result: InitResult) {
                                 if (result.success) {
+                                    PartnerLogController.log(SETUP_SUCCEEDED)
                                     continuation.resume(
-                                        Result.success(
-                                            PartnerLogController.log(SETUP_SUCCEEDED),
-                                        ),
+                                        Result.success(emptyMap())
                                     )
                                 } else {
                                     PartnerLogController.log(SETUP_FAILED)
                                     continuation.resume(
-                                        Result.failure(
-                                            ChartboostMediationAdException(
-                                                ChartboostMediationError.CM_INITIALIZATION_FAILURE_UNKNOWN,
-                                            ),
-                                        ),
+                                        Result.failure(ChartboostMediationAdException(ChartboostMediationError.InitializationError.Unknown))
                                     )
                                 }
                             }
                         },
                     )
-                if (result.success) {
+                    // Set the Mediation Provider.
                     HyprMX.setMediationProvider(
                         mediator = "Chartboost Mediation",
                         mediatorSDKVersion = ChartboostMediationSdk.getVersion(),
                         adapterVersion = configuration.adapterVersion,
                     )
-
                     HyprMX.setConsentStatus(getUserConsent(context))
                     HyprMX.setAgeRestrictedUser(partnerConfiguration.isUserUnderage ?: true)
 
-                    PartnerLogController.log(SETUP_SUCCEEDED)
-                    return Result.success(emptyMap())
-                } else {
-                    PartnerLogController.log(SETUP_FAILED, "HyprMX SDK initialization failed.")
-                    return Result.failure(ChartboostMediationAdException(ChartboostMediationError.InitializationError.Unknown))
-                }
-            } ?: run {
-            PartnerLogController.log(SETUP_FAILED, "Distributor ID is empty.")
-            return Result.failure(ChartboostMediationAdException(ChartboostMediationError.InitializationError.InvalidCredentials))
+                } ?: run {
+                PartnerLogController.log(SETUP_FAILED, "Missing distributorID.")
+                continuation.resumeWith(
+                    Result.failure(ChartboostMediationAdException(ChartboostMediationError.InitializationError.InvalidCredentials))
+                )
+            }
         }
     }
 
@@ -273,7 +262,6 @@ class HyprMXAdapter : PartnerAdapter {
             2 -> ConsentStatus.CONSENT_DECLINED
             else -> ConsentStatus.CONSENT_STATUS_UNKNOWN
         }
-    }
 
     /**
      * Notify HyprMX of the COPPA subjectivity.
@@ -495,12 +483,12 @@ class HyprMXAdapter : PartnerAdapter {
             val banner = HyprMXBannerView(
                 context = context,
                 placementName = request.partnerPlacement,
-                adSize = getHyprMXBannerAdSize(request.size),
+                adSize = getHyprMXBannerAdSize(request.bannerSize?.size),
             )
             banner.listener =
                 object : HyprMXBannerListener {
                     override fun onAdClicked(view: HyprMXBannerView) {
-                        PartnerLogController.log(DID_CLICK)
+                        PartnerLogController.log(PartnerLogController.PartnerAdapterEvents.DID_CLICK)
                         partnerAdListener.onPartnerAdClicked(
                             PartnerAd(
                                 ad = view,
@@ -679,22 +667,12 @@ class HyprMXAdapter : PartnerAdapter {
                 }
 
                 if (placement.isAdAvailable()) {
-                    when (partnerAd.request.format.key) {
-                        AdFormat.INTERSTITIAL.key ->
-                            placement.showAd(
-                                ShowAdListener(
-                                    request = partnerAd.request,
-                                    listener = listener,
-                                )
-                            )
-                        else ->
-                            placement.showAd(
-                                ShowRewardedAdListener(
-                                    request = partnerAd.request,
-                                    listener = listener,
-                                )
-                            )
-                    }
+                    placement.showAd(
+                        FullscreenAdShowListener(
+                            request = partnerAd.request,
+                            listener = listener,
+                        )
+                    )
                 }
             }
         } ?: run {
@@ -732,121 +710,48 @@ class HyprMXAdapter : PartnerAdapter {
             Result.failure(ChartboostMediationAdException(ChartboostMediationError.InvalidateError.AdNotFound))
         }
     }
+}
 
-    /**
-     * Checks that the HyprMX initialization state has completed. If so, then run the function;
-     * otherwise, do nothing.
-     *
-     * @param function the function that will be run after the initialization state check was successful.
-     */
-    private fun checkHyprMxInitStateAndRun(function: () -> Unit) {
-        if (HyprMX.getInitializationState() != HyprMXState.INITIALIZATION_COMPLETE) {
+/**
+ * Callback class for load events.
+ */
+private class LoadAdListener(
+    private val continuationRef: WeakReference<CancellableContinuation<Result<PartnerAd>>>,
+    private val request: PartnerAdLoadRequest,
+    private val placement: Placement,
+) : HyprMXLoadAdListener {
+    fun resumeOnce(result: Result<PartnerAd>) {
+        continuationRef.get()?.let {
+            if (it.isActive) {
+                it.resume(result)
+            }
+        } ?: run {
             PartnerLogController.log(
-                CUSTOM,
-                "Cannot run $function. The HyprMX SDK has not initialized."
+                LOAD_FAILED,
+                "Unable to resume continuation. Continuation is null."
             )
-            return
-        }
-        function()
-    }
-
-    private class LoadAdListener(
-        private val continuationRef: WeakReference<CancellableContinuation<Result<PartnerAd>>>,
-        private val request: PartnerAdLoadRequest,
-        private val placement: Placement,
-    ) : HyprMXLoadAdListener {
-        fun resumeOnce(result: Result<PartnerAd>) {
-            continuationRef.get()?.let {
-                if (it.isActive) {
-                    it.resume(result)
-                }
-            } ?: run {
-                PartnerLogController.log(
-                    LOAD_FAILED,
-                    "Unable to resume continuation. Continuation is null."
-                )
-            }
-        }
-
-        override fun onAdLoaded(isAdAvailable: Boolean) {
-            if (isAdAvailable) {
-                PartnerLogController.log(LOAD_SUCCEEDED)
-                resumeOnce(
-                    Result.success(
-                        PartnerAd(
-                            ad = placement,
-                            details = emptyMap(),
-                            request = request,
-                        ),
-                    ),
-                )
-            } else {
-                PartnerLogController.log(LOAD_FAILED)
-                resumeOnce(
-                    Result.failure(
-                        ChartboostMediationAdException(
-                            ChartboostMediationError.CM_LOAD_FAILURE_NO_FILL,
-                        ),
-                    ),
-                )
-            }
         }
     }
 
-    private open class ShowAdListener(
-        private val request: PartnerAdLoadRequest,
-        private val listener: PartnerAdListener?,
-    ) : HyprMXShowListener {
-        override fun onAdStarted(placement: Placement) {
-            PartnerLogController.log(SHOW_SUCCEEDED)
-            onShowSuccess()
-            onShowSuccess = {}
-        }
-
-        override fun onAdClosed(placement: Placement, finished: Boolean) {
-            PartnerLogController.log(DID_DISMISS)
-            loadedPartnerPlacements.remove(request.partnerPlacement)
-            listener?.onPartnerAdDismissed(
-                PartnerAd(
-                    ad = placement,
-                    details = emptyMap(),
-                    request = request,
-                ),
-                null,
-            )
-        }
-
-        override fun onAdDisplayError(placement: Placement, hyprMXError: HyprMXErrors) {
-            PartnerLogController.log(SHOW_FAILED)
-            hyprMXError.let {
-                onShowError(it)
-                onShowError = {}
-            }
-        }
-
-        override fun onAdImpression(placement: Placement) {
-            PartnerLogController.log(DID_TRACK_IMPRESSION)
-            listener?.onPartnerAdImpression(
-                PartnerAd(
-                    ad = placement,
-                    details = emptyMap(),
-                    request = request,
+    override fun onAdLoaded(isAdAvailable: Boolean) {
+        if (isAdAvailable) {
+            PartnerLogController.log(LOAD_SUCCEEDED)
+            resumeOnce(
+                Result.success(
+                    PartnerAd(
+                        ad = placement,
+                        details = emptyMap(),
+                        request = request,
+                    ),
                 ),
             )
-        }
-    }
-
-    private class ShowRewardedAdListener(
-        private val request: PartnerAdLoadRequest,
-        private val listener: PartnerAdListener?,
-    ) : ShowAdListener(request, listener), HyprMXRewardedShowListener {
-        override fun onAdRewarded(placement: Placement, rewardName: String, rewardValue: Int) {
-            PartnerLogController.log(DID_REWARD)
-            listener?.onPartnerAdRewarded(
-                PartnerAd(
-                    ad = placement,
-                    details = emptyMap(),
-                    request = request,
+        } else {
+            PartnerLogController.log(LOAD_FAILED)
+            resumeOnce(
+                Result.failure(
+                    ChartboostMediationAdException(
+                        ChartboostMediationError.LoadError.NoFill,
+                    ),
                 ),
             )
         }
