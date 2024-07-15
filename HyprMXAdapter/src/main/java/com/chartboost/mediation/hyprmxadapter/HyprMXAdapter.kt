@@ -404,7 +404,9 @@ class HyprMXAdapter : PartnerAdapter {
         if (HyprMXAdapterConfiguration.isConsentStatusOverridden) {
             return
         }
-        consents[ConsentKeys.GDPR_CONSENT_GIVEN]?.let {
+        val consent = consents[configuration.partnerId]?.takeIf { it.isNotBlank() }
+            ?: consents[ConsentKeys.GDPR_CONSENT_GIVEN]?.takeIf { it.isNotBlank() }
+        consent?.let {
             if (it == ConsentValues.DOES_NOT_APPLY) {
                 return@let
             }
@@ -439,8 +441,12 @@ class HyprMXAdapter : PartnerAdapter {
             return@setConsents
         }
 
-        consents[ConsentKeys.USP]?.let {
-            val hasGrantedUspConsent = ConsentManagementPlatform.getUspConsentFromUspString(it)
+        val hasGrantedUspConsent =
+            consents[ConsentKeys.CCPA_OPT_IN]?.takeIf { it.isNotBlank() }
+                ?.equals(ConsentValues.GRANTED)
+                ?: consents[ConsentKeys.USP]?.takeIf { it.isNotBlank() }
+                    ?.let { ConsentManagementPlatform.getUspConsentFromUspString(it) }
+        hasGrantedUspConsent?.let {
             PartnerLogController.log(
                 if (hasGrantedUspConsent) {
                     USP_CONSENT_GRANTED
