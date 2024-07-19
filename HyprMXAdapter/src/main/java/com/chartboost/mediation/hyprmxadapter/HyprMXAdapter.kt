@@ -11,6 +11,7 @@ import android.app.Activity
 import android.content.Context
 import android.util.Size
 import com.chartboost.chartboostmediationsdk.ChartboostMediationSdk
+import com.chartboost.chartboostmediationsdk.ad.ChartboostMediationBannerAdView.ChartboostMediationBannerSize.Companion.asSize
 import com.chartboost.chartboostmediationsdk.domain.*
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController
 import com.chartboost.chartboostmediationsdk.utils.PartnerLogController.PartnerAdapterEvents.BIDDER_INFO_FETCH_STARTED
@@ -50,8 +51,6 @@ import com.hyprmx.android.sdk.placement.HyprMXLoadAdListener
 import com.hyprmx.android.sdk.placement.HyprMXRewardedShowListener
 import com.hyprmx.android.sdk.placement.HyprMXShowListener
 import com.hyprmx.android.sdk.placement.Placement
-import com.hyprmx.android.sdk.utility.HyprMXLog
-import com.hyprmx.android.sdk.utility.HyprMXProperties
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
@@ -489,7 +488,7 @@ class HyprMXAdapter : PartnerAdapter {
             val banner = HyprMXBannerView(
                 context = context,
                 placementName = request.partnerPlacement,
-                adSize = getHyprMXBannerAdSize(request.bannerSize?.size),
+                adSize = getHyprMXBannerAdSize(request.bannerSize?.asSize()),
             )
             banner.listener =
                 object : HyprMXBannerListener {
