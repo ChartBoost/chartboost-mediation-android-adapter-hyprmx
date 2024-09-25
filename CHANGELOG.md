@@ -1,18 +1,26 @@
-## Changelog
+# Changelog
 
 Note the first digit of every adapter version corresponds to the major version of the Chartboost Mediation SDK compatible with that adapter. 
 Adapters are compatible with any Chartboost Mediation SDK version within that major version.
 
 All official releases can be found on this repository's [releases page](https://github.com/ChartBoost/chartboost-mediation-android-adapter-hyprmx/releases).
 
-### 5.6.4.2.0
-- This version of the adapter has been certified with HyprMX SDK 6.4.2.
+## Table of Contents
+- [Mediation 5](#mediation-5)
+- [Mediation 4](#mediation-4)
 
-### 4.6.4.2.0
+## Mediation 5
+
+### 5.6.4.2.0
 - This version of the adapter has been certified with HyprMX SDK 6.4.2.
 
 ### 5.6.4.1.0
 - This version of the adapter supports Chartboost Mediation SDK version 5.+.
+
+## Mediation 4
+
+### 4.6.4.2.0
+- This version of the adapter has been certified with HyprMX SDK 6.4.2.
 
 ### 4.6.4.1.1
 - Fix for HyprMX not being capable of supporting ad queuing.
