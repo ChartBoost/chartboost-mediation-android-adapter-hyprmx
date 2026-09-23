@@ -13,6 +13,7 @@ All official releases can be found on this repository's [releases page](https://
 
 ### 5.6.4.7.0
 - This version of the adapter has been certified with HyprMX SDK 6.4.7.
+- Updated `compileSdk` to 35, as required by HyprMX SDK 6.4.7.
 
 ### 5.6.4.6.0
 - This version of the adapter has been certified with HyprMX SDK 6.4.6.

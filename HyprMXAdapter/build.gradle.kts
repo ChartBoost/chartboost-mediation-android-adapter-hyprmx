@@ -36,7 +36,7 @@ repositories {
 
 android {
     namespace = "com.chartboost.mediation.hyprmxadapter"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 21
