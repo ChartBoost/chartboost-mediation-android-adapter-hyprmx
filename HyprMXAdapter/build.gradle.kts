@@ -36,13 +36,13 @@ repositories {
 
 android {
     namespace = "com.chartboost.mediation.hyprmxadapter"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 21
         targetSdk = 34
         // If you touch the following line, don't forget to update scripts/get_rc_version.zsh
-        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "5.6.4.6.0"
+        android.defaultConfig.versionName = System.getenv("VERSION_OVERRIDE") ?: "5.6.4.7.0"
         buildConfigField("String", "CHARTBOOST_MEDIATION_HYPRMX_ADAPTER_VERSION", "\"${android.defaultConfig.versionName}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -98,7 +98,7 @@ dependencies {
 
     // For external usage, please use the following production dependency.
     // You may choose a different release version.
-    implementation("com.hyprmx.android:HyprMX-SDK:6.4.6")
+    implementation("com.hyprmx.android:HyprMX-SDK:6.4.7")
 
     // Partner SDK Dependencies
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
